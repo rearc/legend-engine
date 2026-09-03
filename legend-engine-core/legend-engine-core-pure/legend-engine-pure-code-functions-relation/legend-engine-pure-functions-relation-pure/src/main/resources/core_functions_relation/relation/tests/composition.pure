@@ -1483,6 +1483,45 @@ Class <<access.private>> meta::pure::functions::relation::tests::composition::Pe
   <<equality.Key>> name: String[1];
 }
 
+function <<PCT.test, PCTRelationQualifier.relation, PCTCoreQualifier.variant>> meta::pure::functions::relation::tests::composition::testVariantColumn_filterOnIsEmptyOfModelConversion<T|m>(f:Function<{Function<{->T[m]}>[1]->T[m]}>[1]):Boolean[1]
+{
+    let expr = {
+                | #TDS
+                  id, payload:meta::pure::metamodel::variant::Variant
+                  1, '{"person": {"name": "Jose"}}'
+                  2, '{}'
+                  3, '{"person": {"name": "Pedro"}}'
+                #->filter(x | $x.payload->get('person')->to(@meta::pure::functions::relation::tests::composition::Person)->isEmpty())
+              };
+ 
+   let res =  $f->eval($expr);
+ 
+   assertEquals('#TDS\n'+
+                '   id,payload\n'+
+                '   2,\'{}\'\n'+
+                '#', $res->toString());
+}
+ 
+function <<PCT.test, PCTRelationQualifier.relation, PCTCoreQualifier.variant>> meta::pure::functions::relation::tests::composition::testVariantColumn_filterOnIsNotEmptyOfModelConversion<T|m>(f:Function<{Function<{->T[m]}>[1]->T[m]}>[1]):Boolean[1]
+{
+    let expr = {
+                | #TDS
+                  id, payload:meta::pure::metamodel::variant::Variant
+                  1, '{"person": {"name": "Jose"}}'
+                  2, '{}'
+                  3, '{"person": {"name": "Pedro"}}'
+                #->filter(x | $x.payload->get('person')->to(@meta::pure::functions::relation::tests::composition::Person)->isNotEmpty())
+              };
+ 
+   let res =  $f->eval($expr);
+ 
+   assertEquals('#TDS\n'+
+                '   id,payload\n'+
+                '   1,\'{"person":{"name":"Jose"}}\'\n'+
+                '   3,\'{"person":{"name":"Pedro"}}\'\n'+
+                '#', $res->toString());
+}
+
 function <<PCT.test, PCTRelationQualifier.relation>> meta::pure::functions::relation::tests::composition::testMultiIfTDS<T|m>(f:Function<{Function<{->T[m]}>[1]->T[m]}>[1]):Boolean[1]
 {
   let expr = {
@@ -2208,6 +2247,34 @@ function <<PCT.test>> meta::pure::functions::relation::tests::composition::testC
                  '   4,Bob\n'+
                  '   5,Eve\n'+
                  '#', $res->sort(~id->ascending())->toString());
+}
+
+function <<PCT.test>> meta::pure::functions::relation::tests::composition::testConcatenateFilterInSubQuery<T|m>(f:Function<{Function<{->T[m]}>[1]->T[m]}>[1]):Boolean[1]
+{
+    let expr = {|
+                  let accounts = #TDS
+                                   accountId, accountName
+                                   1, Alice
+                                   2, Bob
+                                   3, Carol
+                                 #;
+                  $accounts->concatenate($accounts)
+                           ->filter(r | $r.accountId->meta::pure::functions::relation::in(#TDS
+                                                           eligibleId
+                                                           1
+                                                           2
+                                                         #->select(~eligibleId)));
+               };
+ 
+    let res = $f->eval($expr);
+ 
+    assertEquals('#TDS\n'+
+                 '   accountId,accountName\n'+
+                 '   1,Alice\n'+
+                 '   1,Alice\n'+
+                 '   2,Bob\n'+
+                 '   2,Bob\n'+
+                 '#', $res->sort(~accountId->ascending())->toString());
 }
 
 function <<PCT.test, PCTRelationQualifier.relation, PCTCoreQualifier.variant>> meta::pure::functions::relation::tests::composition::testVariantMapColumn_keys_LateralFlatten<T|m>(f:Function<{Function<{->T[m]}>[1]->T[m]}>[1]):Boolean[1]

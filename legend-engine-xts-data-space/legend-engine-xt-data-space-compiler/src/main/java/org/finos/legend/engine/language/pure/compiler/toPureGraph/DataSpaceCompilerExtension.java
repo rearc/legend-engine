@@ -52,6 +52,7 @@ import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.dataSpa
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.dataSpace.DataSpacePackageableElementExecutable;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.dataSpace.DataSpaceSupportCombinedInfo;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.dataSpace.DataSpaceSupportEmail;
+import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.dataSpace.DataSpaceOperationalMetadata;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.dataSpace.DataSpaceTemplateExecutable;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.dataSpace.MappingIncludeDataSpace;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.diagram.Diagram;
@@ -136,6 +137,10 @@ public class DataSpaceCompilerExtension implements CompilerExtension, EmbeddedDa
                     {
                         if (executionContextSet.add(executionContext.name))
                         {
+                            if (executionContext.defaultRuntime == null && executionContext.mapping != null && executionContext.mappingProvider == null)
+                            {
+                                throw new EngineException("Data space execution context '" + executionContext.name + "' must specify a defaultRuntime when a mapping is set", executionContext.sourceInformation, EngineErrorType.COMPILATION);
+                            }
                             Root_meta_pure_runtime_PackageableRuntime runtime = executionContext.defaultRuntime != null ? context.resolvePackageableRuntime(executionContext.defaultRuntime.path, executionContext.defaultRuntime.sourceInformation) : null;
                             Mapping mapping = executionContext.mapping != null
                                     ? context.resolveMapping(executionContext.mapping.path, executionContext.mapping.sourceInformation)
@@ -345,6 +350,24 @@ public class DataSpaceCompilerExtension implements CompilerExtension, EmbeddedDa
                                     ._supportUrl(((DataSpaceSupportCombinedInfo) dataSpace.supportInfo).supportUrl)
                                     ._emails(Lists.mutable.ofAll(((DataSpaceSupportCombinedInfo) dataSpace.supportInfo).emails)));
                         }
+                    }
+
+                    // operational metadata
+                    if (dataSpace.operationalMetadata != null)
+                    {
+                        DataSpaceOperationalMetadata om = dataSpace.operationalMetadata;
+                        org.finos.legend.pure.generated.Root_meta_pure_metamodel_dataSpace_DataSpaceOperationalMetadata_Impl omImpl =
+                                new org.finos.legend.pure.generated.Root_meta_pure_metamodel_dataSpace_DataSpaceOperationalMetadata_Impl("", null, context.pureModel.getClass("meta::pure::metamodel::dataSpace::DataSpaceOperationalMetadata"));
+                        if (om.coverageRegions != null && !om.coverageRegions.isEmpty())
+                        {
+                            omImpl._coverageRegions(ListIterate.collect(om.coverageRegions, (org.finos.legend.engine.protocol.pure.v1.model.packageableElement.dataSpace.DataSpaceRegion r) ->
+                                    context.pureModel.getEnumValue("meta::pure::metamodel::dataSpace::Region", r.name())));
+                        }
+                        if (om.updateFrequency != null)
+                        {
+                            omImpl._updateFrequency(context.pureModel.getEnumValue("meta::pure::metamodel::dataSpace::DeliveryFrequency", om.updateFrequency.name()));
+                        }
+                        metamodel._operationalMetadata(omImpl);
                     }
 
                     if (dataSpace.executables != null)
