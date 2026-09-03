@@ -175,7 +175,7 @@ function meta::relational::mapping::generateInstantiationExecutionNode(sq:meta::
                                   e : Enumeration<Any>[1] | ^DataTypeResultType( genericType=^GenericType(rawType=$class)),
                                   p : PrimitiveType[1]    | ^DataTypeResultType( genericType=^GenericType(rawType=$class)),
                                   c : Class<Any>[1] |
-                                    if($c->in([Variant, List, Map]),
+                                    if($c->in([Variant, List, Map, Any]),
                                       | ^DataTypeResultType(genericType=^GenericType(rawType=$class)),
                                       | ^ClassResultType
                                         (

@@ -66,6 +66,34 @@ function meta::protocols::pure::vX_X_X::invocation::execution::execute::getTDSRe
                       )->map(t | manageName($c.name) + ':' + $t));
                 );
 
+  // KNOWN LIMITATION: a present-but-empty String value in any row here is indistinguishable from
+  // TDSNull once round-tripped through the CSV text below and re-parsed by stringToTDS() -- it
+  // always comes back as null (surfaces as PCT test meta::pure::functions::relation::tests::
+  // composition::testVariantArrayColumn_joinStrings_Function_1__Boolean_1_, currently quarantined
+  // in every relational PCT manifest with this exact reason).
+  //
+  // Root cause is upstream in legend-pure, not fixable from this file:
+  // https://github.com/finos/legend-pure/blob/master/legend-pure-dsl/legend-pure-dsl-tds/legend-pure-m2-dsl-tds-grammar/src/main/java/org/finos/legend/pure/m2/inlinedsl/tds/TDSExtension.java
+  // `makePureCsvSpecs()` configures the underlying io.deephaven.csv reader with
+  // `nullValueLiterals(Arrays.asList("", "null"))`, so any decoded zero-length field -- quoted or
+  // bare -- is treated as null. Confirmed empirically (2026-09, against legend-pure master @
+  // eedb55d) that this cannot be worked around from legend-engine:
+  //   - Quoting the empty value (toCSVString('') -> "''") does not help: the null check applies to
+  //     the decoded/logical value, not the raw token, so a quoted-empty field collapses exactly
+  //     like a bare one.
+  //   - Patching TDS.csv on a copy after an initial sentinel-bearing parse does not help either:
+  //     TDS.toString() re-decodes .csv fresh through the same reader on every call rather than
+  //     reading a value materialized once at parse time, so any "empty" text in .csv re-collapses
+  //     to null the next time it's displayed or compared -- there is no point at which a sentinel
+  //     can be safely swapped back to a true empty string.
+  // A real fix requires changing legend-pure. Blanket-removing "" from nullValueLiterals would
+  // change every #TDS ... # grammar literal's "blank means null" convention repo-wide -- a much
+  // safer, narrower option is to make TDS's decode/render path multiplicity-aware: a decoded-null
+  // value in a column declared mandatory ([1], where null was never a legal value to begin with)
+  // could render as '' instead of the literal text "null", leaving genuinely optional ([0..1])
+  // columns' existing null semantics untouched.
+  // The identical pattern (same root cause) also exists in legend-engine-xt-deephaven-pure's
+  // getDeephavenTDSResultFromProtocol (execution_deephaven_execute.pure).
   let tdsString = $columns->joinStrings(',') + '\n' +
                                 $r.result.rows->map(x|
                                   range($x.values->size())->map(z |
