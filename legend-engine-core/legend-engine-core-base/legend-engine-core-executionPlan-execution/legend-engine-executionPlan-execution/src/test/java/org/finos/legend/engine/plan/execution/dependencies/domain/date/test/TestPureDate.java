@@ -614,4 +614,41 @@ public class TestPureDate
 
         Assert.assertEquals(PureDate.newPureDate(2016, 5, 17, 10, 26, 32, "977813358"), date.subtractSubseconds("802200071"));
     }
+
+    @Test
+    public void testFromSQLTimestampWithNoFractionalSeconds()
+    {
+        java.sql.Timestamp timestamp = java.sql.Timestamp.from(java.time.Instant.parse("1973-11-13T23:09:11Z"));
+
+        PureDate date = PureDate.fromSQLTimestamp(timestamp);
+
+        Assert.assertFalse(date.hasSubsecond());
+        Assert.assertEquals(PureDate.newPureDate(1973, 11, 13, 23, 9, 11), date);
+        Assert.assertEquals("1973-11-13T23:09:11", date.toString());
+    }
+
+    @Test
+    public void testFromSQLTimestampTrimsTrailingZerosInSubsecond()
+    {
+        java.sql.Timestamp timestamp = java.sql.Timestamp.from(java.time.Instant.parse("2015-04-16T14:51:59Z"));
+        timestamp.setNanos(999_000_000);
+
+        PureDate date = PureDate.fromSQLTimestamp(timestamp);
+
+        Assert.assertEquals("999", date.getSubsecond());
+        Assert.assertEquals(PureDate.newPureDate(2015, 4, 16, 14, 51, 59, "999"), date);
+        Assert.assertEquals("2015-04-16T14:51:59.999", date.toString());
+    }
+
+    @Test
+    public void testFromSQLTimestampPreservesFullNanosecondPrecision()
+    {
+        java.sql.Timestamp timestamp = java.sql.Timestamp.from(java.time.Instant.parse("2015-04-16T14:51:59Z"));
+        timestamp.setNanos(123456789);
+
+        PureDate date = PureDate.fromSQLTimestamp(timestamp);
+
+        Assert.assertEquals("123456789", date.getSubsecond());
+        Assert.assertEquals(PureDate.newPureDate(2015, 4, 16, 14, 51, 59, "123456789"), date);
+    }
 }

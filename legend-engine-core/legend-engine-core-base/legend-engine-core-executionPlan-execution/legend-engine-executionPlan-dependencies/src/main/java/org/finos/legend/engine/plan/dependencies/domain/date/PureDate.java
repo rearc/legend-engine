@@ -1531,12 +1531,52 @@ public class PureDate implements org.finos.legend.pure.m4.coreinstance.primitive
         return fromCalendar(calendar, Calendar.DAY_OF_MONTH, new PureDate());
     }
 
+    // KNOWN LIMITATION: this fix does not resolve the relational PCT tests
+    // meta::pure::functions::date::tests::testDateFromSecond_Function_1__Boolean_1_ /
+    // testDateFromSubSecond_Function_1__Boolean_1_, which remain quarantined (with this exact
+    // ".000000000" mismatch text) in every relational dialect's manifest.
+    //
+    // Root cause of the *remaining* PCT failure is upstream in legend-pure, not fixable from this
+    // file: those tests compare against a value built by
+    // org.finos.legend.pure.m4.coreinstance.primitive.date.DateWithSubsecond#fromSQLTimestamp
+    // (legend-pure-core/legend-pure-m4/.../coreinstance/primitive/date/DateWithSubsecond.java,
+    // https://github.com/finos/legend-pure/blob/master/legend-pure-core/legend-pure-m4/src/main/java/org/finos/legend/pure/m4/coreinstance/primitive/date/DateWithSubsecond.java),
+    // reached via org.finos.legend.pure.m4.coreinstance.primitive.date.DateFunctions#fromSQLTimestamp
+    // (invoked from SetImplTransformers.TEMPORARY_DATATYPE_TRANSFORMER for the PCT scalar-eval
+    // comparison path) -- a *different* class from this one, despite the identical method name and
+    // near-identical bug. It unconditionally calls TimeFunctions#subsecondFromNanoseconds, which
+    // zero-pads to 9 digits with no check for a zero nanos value, so it always attaches a
+    // subsecond, never omitting or trimming it the way this method (below) now does. Confirmed via
+    // javap against legend-pure-m4-5.97.1.jar (2026-09-04): fixing legend-engine's own copy here
+    // does not change the PCT test's actual/expected diff, because that comparison path never calls
+    // this method at all.
+    //
+    // This method itself is not dead code -- RelationalResult#getTransformedValue and
+    // ResultColumn's equivalent branch call it directly for real JDBC TIMESTAMP-column extraction
+    // in production execution plans, a genuinely different path from the PCT harness's scalar-eval
+    // comparison above. The fix below is a real, independently-unit-tested (see TestPureDate)
+    // correctness improvement for that path; it simply does not touch the legend-pure class the PCT
+    // tests exercise.
     public static PureDate fromSQLTimestamp(java.sql.Timestamp timestamp)
     {
         GregorianCalendar calendar = new GregorianCalendar(GMT_TIME_ZONE);
         calendar.setTime(timestamp);
         PureDate pureDate = fromCalendar(calendar, Calendar.SECOND, new PureDate());
-        ((PureDate) pureDate).subsecond = String.format("%09d", timestamp.getNanos());
+        int nanos = timestamp.getNanos();
+        if (nanos != 0)
+        {
+            // A Timestamp with no fractional-second component is indistinguishable, at this point, from one
+            // constructed with an explicit zero-precision subsecond, so a nanos value of 0 is treated as "no
+            // subsecond" rather than stamping a spurious ".000000000". A non-zero value is trimmed to the
+            // minimal digit count that round-trips it, matching how subseconds are otherwise represented.
+            String nineDigitNanos = String.format("%09d", nanos);
+            int end = nineDigitNanos.length();
+            while (nineDigitNanos.charAt(end - 1) == '0')
+            {
+                end--;
+            }
+            pureDate.subsecond = nineDigitNanos.substring(0, end);
+        }
         return pureDate;
     }
 
