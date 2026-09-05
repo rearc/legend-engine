@@ -193,6 +193,7 @@ function meta::relational::tests::pct::process::toMany(var: Variant[1], type: Ge
   if([
       pair(|$type.rawType == Integer, |$var->toMany(@Integer)),
       pair(|$type.rawType == Float, |$var->toMany(@Float)),
+      pair(|$type.rawType == Number, |$var->toMany(@Variant)->map(v | $v->variantToNumber())),
       pair(|$type.rawType == String, |$var->toMany(@String)),
       pair(|$type.rawType == StrictDate, |$var->toMany(@StrictDate)),
       pair(|$type.rawType == DateTime, |$var->toMany(@DateTime)),
@@ -200,6 +201,17 @@ function meta::relational::tests::pct::process::toMany(var: Variant[1], type: Ge
       pair(|$type.rawType == Variant, |$var->toMany(@Variant))
     ],
     | fail('Not supported: ' + $type->meta::pure::metamodel::serialization::grammar::printGenericType()); [];
+  );
+}
+
+function meta::relational::tests::pct::process::variantToNumber(var: Variant[1]):Number[1]
+{
+  // Number has no native variant-conversion target (only concrete Integer/Float do), so pick the
+  // concrete type from the JSON literal's own textual form: a decimal point/exponent means Float.
+  let json = $var->to(@String)->toOne();
+  if ($json->contains('.') || $json->toLower()->contains('e'),
+    | $var->to(@Float)->toOne(),
+    | $var->to(@Integer)->toOne()
   );
 }
 
