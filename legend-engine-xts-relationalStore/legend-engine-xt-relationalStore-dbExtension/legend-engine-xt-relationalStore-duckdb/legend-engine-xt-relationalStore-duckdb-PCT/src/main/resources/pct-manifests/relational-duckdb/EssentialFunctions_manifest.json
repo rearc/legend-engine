@@ -80,16 +80,7 @@
     "expectedError" : "No SQL translation exists for the PURE function 'forAll_T_MANY__Function_1__Boolean_1_'. \nIf you would like to add a SQL translation for the function then follow the step-by-step guide on the PURE wiki."
   }, {
     "test" : "meta::pure::functions::collection::tests::head::testHeadComplex_Function_1__Boolean_1_",
-    "expectedError" : "Cannot cast a collection of size 0 to multiplicity [1]"
-  }, {
-    "test" : "meta::pure::functions::collection::tests::head::testHeadOnEmptySet_Function_1__Boolean_1_",
-    "expectedError" : "Cannot cast a collection of size 0 to multiplicity [1]"
-  }, {
-    "test" : "meta::pure::functions::collection::tests::head::testHeadOnOneElement_Function_1__Boolean_1_",
-    "expectedError" : "Cannot cast a collection of size 0 to multiplicity [1]"
-  }, {
-    "test" : "meta::pure::functions::collection::tests::head::testHeadSimple_Function_1__Boolean_1_",
-    "expectedError" : "Cannot cast a collection of size 0 to multiplicity [1]"
+    "expectedError" : "Execution error at (resource:/core_relational/relational/relationalMappingExecution.pure line:204 column:129), \"The system is trying to get an element at offset 0 where the collection is of size 0\""
   }, {
     "test" : "meta::pure::functions::collection::tests::indexof::testIndexOfOneElement_Function_1__Boolean_1_",
     "expectedError" : "\nexpected: 0\nactual:   1"
@@ -113,7 +104,7 @@
     "expectedError" : "No error was thrown"
   }, {
     "test" : "meta::pure::functions::collection::tests::sort::testMixedSortNoComparator_Function_1__Boolean_1_",
-    "expectedError" : "Not supported: Number"
+    "expectedError" : "\nexpected: [-2.0, 1, 5.0, 171, 342]\nactual:   [-2.0, 1.0, 5.0, 171.0, 342.0]"
   }, {
     "test" : "meta::pure::functions::collection::tests::sort::testSimpleSortReversed_Function_1__Boolean_1_",
     "expectedError" : "No SQL translation exists for the PURE function 'sort_T_m__Function_$0_1$__Function_$0_1$__T_m_'. \nIf you would like to add a SQL translation for the function then follow the step-by-step guide on the PURE wiki."
