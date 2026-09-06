@@ -53,6 +53,25 @@ function meta::protocols::pure::vX_X_X::invocation::execution::execute::manageNa
 
 function meta::protocols::pure::vX_X_X::invocation::execution::execute::getTDSResultFromProtocol(r:meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalTDSResult[1], funcReturnType:GenericType[1], extensions:meta::pure::extension::Extension[*]): Any[1]
 {
+  // A query whose result type resolves to a bare DataType (e.g. Any, from mixed-type collection
+  // functions like concatenate()/fold() -- see genericTypeToDataType's Any -> SemiStructured case)
+  // executes as a DataTypeBuilder result rather than a TDSBuilder one, even though this harness
+  // function is only ever reached for a Relation-typed PCT expectation. Such a result is a flat
+  // Any-typed value list, not a Relation/TDS at all -- reconstructing it as a TDS (as the rest of
+  // this function does for a genuine TDSBuilder) would hand back a value of type TDS where the
+  // test expects Any. Mirror processDataTypeResult's plain value-list extraction instead, boxed in
+  // a List so this many-valued result still fits this function's [1] signature -- the caller
+  // (testAdapterForRelationalExecution) unboxes it back to the declared multiplicity via its own
+  // final ->toMultiplicity(@[o]) call.
+  if ($r.builder->instanceOf(meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::DataTypeBuilder),
+    | let trans = meta::protocols::pure::vX_X_X::invocation::execution::execute::dataTypeTransformer($r.builder->cast(@meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::DataTypeBuilder).type);
+      ^List<Any>(values=$r.result.rows.values->map(v|$trans->eval($v)));,
+    | getTDSResultFromProtocolForTDSBuilder($r, $funcReturnType, $extensions)
+  );
+}
+
+function <<access.private>> meta::protocols::pure::vX_X_X::invocation::execution::execute::getTDSResultFromProtocolForTDSBuilder(r:meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalTDSResult[1], funcReturnType:GenericType[1], extensions:meta::pure::extension::Extension[*]): Any[1]
+{
   let cols = $r.builder->cast(@meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::TDSBuilder).columns;
 
   // We lose column type info after pivot, so need to compensate from protocol.
@@ -383,8 +402,15 @@ function <<access.private>> meta::protocols::pure::vX_X_X::invocation::execution
                             let element = $c->pathToElement();
                             if ($element->instanceOf(PrimitiveType) && $element->toOne()->cast(@Type)->isExtendedPrimitiveType(),
                               |$element->cast(@Type)->bypassExtendedPrimitives().name->toOne()->dataTypeTransformer(),
-                              |let t = $element->cast(@Enumeration<Any>);
-                              {a:Any[1]|$t->extractEnumValue($a->toString())};
+                              |if ($element->instanceOf(Enumeration),
+                                |let t = $element->cast(@Enumeration<Any>);
+                                 {a:Any[1]|$t->extractEnumValue($a->toString())};,
+                                // A plain Class (e.g. Any, from a mixed-type collection result --
+                                // see genericTypeToDataType's Any -> SemiStructured case) needs no
+                                // enum-value extraction; the JSON-deserialized value is already the
+                                // right shape.
+                                |{a:Any[1]|$a}
+                              );
                             );
                           },
                           |{a:Any[1]|$a}

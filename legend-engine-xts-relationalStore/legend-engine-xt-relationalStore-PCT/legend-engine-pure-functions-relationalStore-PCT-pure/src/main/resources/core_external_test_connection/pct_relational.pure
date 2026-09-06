@@ -138,7 +138,7 @@ function meta::relational::tests::pct::testAdapterForRelationalExecution<X|o>(f:
               $x.first.values;,
             | let res = $json->meta::json::fromJSON(meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalTDSResult, ^meta::json::ExtendedJSONDeserializationConfig(typeKeyName='__TYPE', failOnUnknownProperties=true, nullReplacementInArray=TDSNull))->cast(@meta::protocols::pure::vX_X_X::metamodel::invocation::execution::execute::RelationalTDSResult)->toOne();
               // processResult
-              if ($resultType->instanceOf(PrimitiveType) || $resultType->instanceOf(Enumeration) || $resultType->in([Variant, List, Map, Nil]),
+              if ($resultType->instanceOf(PrimitiveType) || $resultType->instanceOf(Enumeration) || $resultType->in([Variant, List, Map, Nil, Any]),
                 | let preResultFinal = $res.result.rows->head().values->head();
 
                   print(if($debug.debug,|'\nRaw Result:\n'+$preResultFinal->makeString('[',',',']'),|''));
@@ -149,8 +149,6 @@ function meta::relational::tests::pct::testAdapterForRelationalExecution<X|o>(f:
                   $resultFinal;,
                 |
                   let resultFinal = meta::protocols::pure::vX_X_X::invocation::execution::execute::getTDSResultFromProtocol($res, $f->functionReturnType(), $extensions);
-
-                  let relType = $resultFinal->genericType().typeArguments.rawType->cast(@RelationType<Any>)->toOne();
 
                   print(if($debug.debug,|$resultFinal->match(
                                             [
@@ -197,9 +195,31 @@ function meta::relational::tests::pct::process::toMany(var: Variant[1], type: Ge
       pair(|$type.rawType == StrictDate, |$var->toMany(@StrictDate)),
       pair(|$type.rawType == DateTime, |$var->toMany(@DateTime)),
       pair(|$type.rawType == Boolean, |$var->toMany(@Boolean)),
-      pair(|$type.rawType == Variant, |$var->toMany(@Variant))
+      pair(|$type.rawType == Variant, |$var->toMany(@Variant)),
+      pair(|$type.rawType == Any, |$var->toMany(@Variant)->map(v|$v->variantToAny()))
     ],
     | fail('Not supported: ' + $type->meta::pure::metamodel::serialization::grammar::printGenericType()); [];
+  );
+}
+
+function meta::relational::tests::pct::process::variantToAny(v: Variant[1]): Any[1]
+{
+  // An Any-typed array element (e.g. from concatenate()/fold() mixing Integer/String -- see
+  // genericTypeToDataType's Any -> SemiStructured case) carries no type tag of its own; the only
+  // way to recover which primitive it originally was is to inspect its own JSON textual form.
+  // toJson() preserves quoting, so a leading '"' means the element was a JSON string; otherwise
+  // it's a bare literal (true/false, or a number -- Integer unless it has a decimal point/exponent,
+  // mirroring the Integer-vs-Float disambiguation used elsewhere in this harness for Number).
+  let text = $v->meta::pure::functions::variant::convert::toJson();
+  if($text->startsWith('"'),
+    | $v->to(@String)->toOne(),
+    | if($text == 'true' || $text == 'false',
+        | $v->to(@Boolean)->toOne(),
+        | if($text->toLower()->contains('.') || $text->toLower()->contains('e'),
+            | $v->to(@Float)->toOne(),
+            | $v->to(@Integer)->toOne()
+          )
+      )
   );
 }
 
