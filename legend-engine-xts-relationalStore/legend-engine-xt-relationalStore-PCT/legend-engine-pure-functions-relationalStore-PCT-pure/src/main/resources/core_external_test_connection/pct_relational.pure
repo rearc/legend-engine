@@ -574,7 +574,39 @@ function meta::relational::tests::pct::process::reprocess(a:Any[1], state:Proces
                                                                                 $reproCurrent->at(0)->concatenate($tds);,
                                                                               | $repro.current->cast(@ValueSpecification))
                                                        )->evaluateAndDeactivate(),
-                                          mapping = $repro.mapping->first(),
+                                          // Each parameter of a multi-parameter function (e.g. concatenate()) is reprocessed independently, and a
+                                          // parameter whose value is one or more class instances gets its own freshly-synthesized Mapping (see
+                                          // reprocessNew()/classesToDatabase()). Keeping only the first parameter's mapping (as this used to)
+                                          // silently drops every class introduced by a later parameter -- harmless when every parameter happens
+                                          // to involve the same class(es) (the common case), but when two parameters introduce genuinely
+                                          // different classes (e.g. concatenate() of two literal, unrelated class instance lists), the dropped
+                                          // parameter's class is left with no SetImplementation in the mapping actually used, and the router
+                                          // fails to route it as a StoreMappingRoutedValueSpecification. Merge instead, keeping the first
+                                          // occurrence of each distinct class (by class, not by object identity, since each parameter's
+                                          // reprocessing builds its own fresh Table/RootRelationalInstanceSetImplementation even for a class
+                                          // shared with another parameter) so no class mapping is lost and no class is mapped twice.
+                                          mapping = if($repro.mapping->size() <= 1,
+                                                       | $repro.mapping->first(),
+                                                       | let baseMapping = $repro.mapping->first()->toOne();
+                                                         let baseClasses = $baseMapping->cast(@Mapping).classMappings
+                                                                              ->cast(@meta::relational::mapping::RootRelationalInstanceSetImplementation).class;
+                                                         $repro.mapping->tail()->fold(
+                                                           {m, seenClasses |
+                                                             let newClassMappings = $m->cast(@Mapping).classMappings
+                                                                                        ->filter(cm|!$cm->cast(@meta::relational::mapping::RootRelationalInstanceSetImplementation).class->in($seenClasses));
+                                                             // Each transplanted classMapping still has its ORIGINAL (now-discarded) per-parameter
+                                                             // Mapping as its .parent back-reference. Re-point it at $baseMapping -- the mapping it
+                                                             // actually now lives in -- so mapping-scoped resolution (e.g. the router looking up
+                                                             // "which SetImplementations belong to this mapping") sees it as genuinely belonging
+                                                             // here, rather than to the orphaned mapping object nothing else references.
+                                                             let unusedParentFix = $newClassMappings->map(cm|$cm->mutateAdd('parent', $baseMapping));
+                                                             let unused = $baseMapping->mutateAdd('classMappings', $newClassMappings);
+                                                             $seenClasses->concatenate($newClassMappings->cast(@meta::relational::mapping::RootRelationalInstanceSetImplementation).class);
+                                                           },
+                                                           $baseClasses
+                                                         );
+                                                         $baseMapping;
+                                                     ),
                                           replaced = $repro.replaced,
                                           csvs = $repro.csvs
                                       );,
@@ -808,8 +840,20 @@ function meta::relational::tests::pct::process::buildCSV(values:Any[*], class:Cl
   let rows = $values->map
   (
     v | let id = $values->indexOf($v) + $parentId*10;
+        // A String property value containing a literal comma (or quote) would otherwise be split into
+        // extra, misaligned CSV fields by the plain makeString(',') below -- quote/escape it like any
+        // other CSV writer would, leaving non-String values (Integer/Float/Date/etc, which don't contain
+        // raw commas in their toString() form) untouched.
         let r = $id
-        ->concatenate($info.properties->map(p | let res = $p->eval($v); if($res->isEmpty(),|'',|$res);))
+        ->concatenate($info.properties->map(p | let res = $p->eval($v);
+                                                  if($res->isEmpty(),
+                                                    |'',
+                                                    |$res->match([
+                                                        s:String[1] | '"' + $s->replace('"', '""') + '"',
+                                                        a:Any[1] | $a
+                                                      ])
+                                                  );
+                                            ))
         ->concatenate($info.parentProperties->map(p | if($p == $property,|$parentId,|'-1')))
         ->makeString(',');
 

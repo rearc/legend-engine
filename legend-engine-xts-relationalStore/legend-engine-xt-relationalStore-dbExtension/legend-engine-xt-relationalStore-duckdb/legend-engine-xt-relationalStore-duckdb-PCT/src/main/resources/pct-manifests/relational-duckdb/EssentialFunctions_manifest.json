@@ -17,7 +17,7 @@
     "expectedError" : "->at(...) function is supported only after direct access of 1->MANY properties. Current expression: ['a', 'b', 'c'] -> at(0)"
   }, {
     "test" : "meta::pure::functions::collection::tests::concatenate::testConcatenateTypeInference_Function_1__Boolean_1_",
-    "expectedError" : "Execution error at (resource:/core_relational/relational/pureToSQLQuery/pureToSQLQuery.pure line:4982 column:65), \"Cast exception: InstanceValue cannot be cast to StoreMappingRoutedValueSpecification\""
+    "expectedError" : "Execution error at ??, \"Failed to execute plan - RuntimeException - java.lang.RuntimeException: Error reading in property 'place'. Property of multiplicity [1] can not be null, PKs: 10\""
   }, {
     "test" : "meta::pure::functions::collection::tests::contains::testContainsNonPrimitive_Function_1__Boolean_1_",
     "expectedError" : "Parameter to IN operation isn't a literal!"
