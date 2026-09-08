@@ -26,7 +26,7 @@
     "expectedError" : "\"Couldn't find DynaFunction to Postgres model translation for toVariantList().\""
   }, {
     "test" : "meta::pure::functions::collection::tests::concatenate::testConcatenateTypeInference_Function_1__Boolean_1_",
-    "expectedError" : "\"Couldn't find DynaFunction to Postgres model translation for toVariantList().\""
+    "expectedError" : "Execution error at (resource:/core_relational/relational/sqlDialectTranslation/toPostgresModel.pure line:268 column:54), \"Couldn't find DynaFunction to Postgres model translation for toVariantList().\""
   }, {
     "test" : "meta::pure::functions::collection::tests::contains::testContainsNonPrimitive_Function_1__Boolean_1_",
     "expectedError" : "\"Parameter to IN operation isn't a literal!\""
