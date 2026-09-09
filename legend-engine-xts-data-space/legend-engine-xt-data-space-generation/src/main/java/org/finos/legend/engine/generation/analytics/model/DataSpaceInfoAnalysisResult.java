@@ -34,5 +34,11 @@ public class DataSpaceInfoAnalysisResult
     public List<String> relatedDataSpaces;
 
     public String deprecationNotice;
+
+    public String vendorLicenseStatus;
+
+    public String vendorRelationshipOwner;
+
+    public String vendorProviderName;
 }
 

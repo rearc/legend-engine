@@ -17,7 +17,7 @@
     "expectedError" : "->at(...) function is supported only after direct access of 1->MANY properties. Current expression: ['a', 'b', 'c'] -> at(0)"
   }, {
     "test" : "meta::pure::functions::collection::tests::contains::testContainsNonPrimitive_Function_1__Boolean_1_",
-    "expectedError" : "\"Parameter to IN operation isn't a literal!\""
+    "expectedError" : "Parameter to IN operation isn't a literal!"
   }, {
     "test" : "meta::pure::functions::collection::tests::contains::testContainsPrimitive_Function_1__Boolean_1_",
     "expectedError" : "[DATATYPE_MISMATCH.DATA_DIFF_TYPES]"
@@ -43,9 +43,6 @@
     "test" : "meta::pure::functions::collection::tests::fold::testFoldEmptyListAndEmptyIdentity_Function_1__Boolean_1_",
     "expectedError" : "[DATATYPE_MISMATCH.ARRAY_FUNCTION_DIFF_TYPES] org.apache.spark.sql.catalyst.ExtendedAnalysisException: [DATATYPE_MISMATCH.ARRAY_FUNCTION_DIFF_TYPES] Cannot resolve \"array_append(namedlambdavariable(), namedlambdavariable())\" due to data type mismatch: Input to `array_append` should have been \"ARRAY\" followed by a value with same element type, but it's [\"ARRAY<STRING>\", \"BIGINT\"]. SQLSTATE: 42K09"
   }, {
-    "test" : "meta::pure::functions::collection::tests::fold::testFoldEmptyListAndNonEmptyIdentity_Function_1__Boolean_1_",
-    "expectedError" : "The third parameter requires the \"INT\" type"
-  }, {
     "test" : "meta::pure::functions::collection::tests::fold::testFoldFiltering_Function_1__Boolean_1_",
     "expectedError" : "Function does not exist 'meta::pure::functions::lang::copy(FO_Person[1],String[1],KeyExpression[1])'"
   }, {
@@ -55,9 +52,6 @@
     "test" : "meta::pure::functions::collection::tests::fold::testFold_Function_1__Boolean_1_",
     "expectedError" : "Function does not exist 'meta::pure::functions::lang::copy(FO_Person[1],String[1],KeyExpression[1])'"
   }, {
-    "test" : "meta::pure::functions::collection::tests::fold::testIntegerSum_Function_1__Boolean_1_",
-    "expectedError" : "The third parameter requires the \"INT\" type"
-  }, {
     "test" : "meta::pure::functions::collection::tests::forall::testforAllOnEmptySet_Function_1__Boolean_1_",
     "expectedError" : "No SQL translation exists for the PURE function 'forAll_T_MANY__Function_1__Boolean_1_'"
   }, {
@@ -66,9 +60,6 @@
   }, {
     "test" : "meta::pure::functions::collection::tests::forall::testforAllOnNonEmptySetIsTrue_Function_1__Boolean_1_",
     "expectedError" : "No SQL translation exists for the PURE function 'forAll_T_MANY__Function_1__Boolean_1_'. \nIf you would like to add a SQL translation for the function then follow the step-by-step guide on the PURE wiki."
-  }, {
-    "test" : "meta::pure::functions::collection::tests::get::testGet_Function_1__Boolean_1_",
-    "expectedError" : "semi_structured_extract_json_multi(map(), $.key1)"
   }, {
     "test" : "meta::pure::functions::collection::tests::head::testHeadComplex_Function_1__Boolean_1_",
     "expectedError" : "Cannot cast a collection of size 0 to multiplicity [1]"
@@ -81,15 +72,6 @@
   }, {
     "test" : "meta::pure::functions::collection::tests::head::testHeadSimple_Function_1__Boolean_1_",
     "expectedError" : "Cannot cast a collection of size 0 to multiplicity [1]"
-  }, {
-    "test" : "meta::pure::functions::collection::tests::indexof::testIndexOfOneElement_Function_1__Boolean_1_",
-    "expectedError" : "\nexpected: 0\nactual:   1"
-  }, {
-    "test" : "meta::pure::functions::collection::tests::put::testPut_overridesEntry_Function_1__Boolean_1_",
-    "expectedError" : "Duplicate map key key1"
-  }, {
-    "test" : "meta::pure::functions::collection::tests::putAll::testPutAll_overridesExistingAndAddNew_Function_1__Boolean_1_",
-    "expectedError" : "Duplicate map key key2"
   }, {
     "test" : "meta::pure::functions::collection::tests::removeDuplicates::testRemoveDuplicatesEmptyListExplicit_Function_1__Boolean_1_",
     "expectedError" : "No SQL translation exists for the PURE function 'removeDuplicates_T_MANY__Function_$0_1$__Function_$0_1$__T_MANY_'"
@@ -376,23 +358,11 @@
     "test" : "meta::pure::functions::string::tests::indexOf::testFromIndex_Function_1__Boolean_1_",
     "expectedError" : "No SQL translation exists for the PURE function 'indexOf_String_1__String_1__Integer_1__Integer_1_'. \nIf you would like to add a SQL translation for the function then follow the step-by-step guide on the PURE wiki."
   }, {
-    "test" : "meta::pure::functions::string::tests::indexOf::testSimple_Function_1__Boolean_1_",
-    "expectedError" : "\nexpected: 4\nactual:   5"
-  }, {
     "test" : "meta::pure::functions::string::tests::parseDate::testParseDateTypes_Function_1__Boolean_1_",
-    "expectedError" : "[unsupported-api] The function 'toTimestamp' (state: [Select, false]) is not supported yet"
-  }, {
-    "test" : "meta::pure::functions::string::tests::parseDate::testParseDateWithTimezone_Function_1__Boolean_1_",
-    "expectedError" : "[unsupported-api] The function 'toTimestamp' (state: [Select, false]) is not supported yet"
-  }, {
-    "test" : "meta::pure::functions::string::tests::parseDate::testParseDateWithZ_Function_1__Boolean_1_",
-    "expectedError" : "[unsupported-api] The function 'toTimestamp' (state: [Select, false]) is not supported yet"
-  }, {
-    "test" : "meta::pure::functions::string::tests::parseDate::testParseDate_Function_1__Boolean_1_",
-    "expectedError" : "[unsupported-api] The function 'toTimestamp' (state: [Select, false]) is not supported yet"
+    "expectedError" : "expected %2014-02-27 to be an instance of DateTime, actual: StrictDate"
   }, {
     "test" : "meta::pure::functions::string::tests::parseDecimal::testParseDecimalWithPrecisionScale_Function_1__Boolean_1_",
-    "expectedError" : "\"\nexpected: 123.12300D\nactual:   123.123D\""
+    "expectedError" : "\nexpected: 123.12300D\nactual:   123.123D"
   }, {
     "test" : "meta::pure::functions::string::tests::parseDecimal::testParseDecimal_Function_1__Boolean_1_",
     "expectedError" : "[CAST_INVALID_INPUT] The value '3.14159d' of the type \"STRING\" cannot be cast to \"DECIMAL(10,0)\""
