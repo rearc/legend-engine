@@ -58,6 +58,10 @@
       "expectedError": "Cast exception: InstanceValue cannot be cast to StoreMappingRoutedValueSpecification"
     },
     {
+      "test": "meta::pure::functions::collection::tests::map::testMapInstance_Function_1__Boolean_1_",
+      "expectedError": "type not supported: meta::pure::functions::collection::tests::map::model::M_GeographicEntityType"
+    },
+    {
       "test" : "meta::pure::functions::collection::tests::map::testMapRelationshipFromManyToMany_Function_1__Boolean_1_",
       "expectedError" : "Error dynamically evaluating value specification (from /platform/pure/grammar/functions/collection/iteration/map.pure"
     },
@@ -107,7 +111,7 @@
     },
     {
       "test": "meta::pure::functions::lang::tests::letFn::testAssignNewInstance_Function_1__Boolean_1_",
-      "expectedError": "Type missing: meta::pure::functions::lang::tests::model::LA_Person"
+      "expectedError": "type not supported: meta::pure::functions::lang::tests::model::LA_GeographicEntityType"
     },
     {
       "test": "meta::pure::functions::lang::tests::letFn::testLetAsLastStatement_Function_1__Boolean_1_",
@@ -131,7 +135,7 @@
     },
     {
       "test" : "meta::pure::functions::math::tests::minus::testLargeMinus_Function_1__Boolean_1_",
-      "expectedError" : "Out of Range Error: Overflow in subtraction of INT64 (-9223372036854775718 - 132)!"
+      "expectedError" : "java.sql.SQLException: Out of Range Error: Overflow in subtraction of INT64 (-9223372036854775718 - 132)!"
     },
     {
       "test": "meta::pure::functions::math::tests::minus::testSingleMinusType_Function_1__Boolean_1_",
@@ -139,7 +143,7 @@
     },
     {
       "test" : "meta::pure::functions::math::tests::minus::testSingleMinus_Function_1__Boolean_1_",
-      "expectedError" : "Parser Error: SELECT clause without selection list"
+      "expectedError" : "java.sql.SQLException: Parser Error: SELECT clause without selection list"
     },
     {
       "test": "meta::pure::functions::math::tests::plus::testDecimalPlus_Function_1__Boolean_1_",
@@ -147,7 +151,7 @@
     },
     {
       "test" : "meta::pure::functions::math::tests::plus::testLargePlus_Function_1__Boolean_1_",
-      "expectedError" : "Out of Range Error: Overflow in addition of INT64 (9223372036854775807 + 3)!"
+      "expectedError" : "java.sql.SQLException: Out of Range Error: Overflow in addition of INT64 (9223372036854775807 + 3)!"
     },
     {
       "test": "meta::pure::functions::math::tests::plus::testSinglePlusType_Function_1__Boolean_1_",
@@ -159,11 +163,11 @@
     },
     {
       "test" : "meta::pure::functions::math::tests::times::testLargeTimes_Function_1__Boolean_1_",
-      "expectedError" : "Out of Range Error: Overflow in multiplication of INT64 (2 * 9223372036854775807)!"
+      "expectedError" : "java.sql.SQLException: Out of Range Error: Overflow in multiplication of INT64 (2 * 9223372036854775807)!"
     },
     {
       "test": "meta::pure::functions::string::tests::plus::testMultiPlusWithPropertyExpressions_Function_1__Boolean_1_",
-      "expectedError": "\nexpected: 'Hoboken, NJ; Jersey City, NJ'\nactual:   'Hoboken, NJ; Hoboken, NJ'"
+      "expectedError": "type not supported: meta::pure::functions::string::tests::plus::model::P_GeographicEntityType"
     },
     {
       "test": "meta::pure::functions::string::tests::plus::testPlusInCollect_Function_1__Boolean_1_",

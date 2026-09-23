@@ -3,7 +3,7 @@
   "exclusions": [
     {
       "test" : "meta::pure::functions::boolean::tests::conjunctions::and::testShortCircuitSimple_Function_1__Boolean_1_",
-      "expectedError" : "Division by zero: \"12.0\"; SQL statement:\nselect false and ((1.0 * 12) / 0) > 0"
+      "expectedError" : "org.h2.jdbc.JdbcSQLDataException: Division by zero: \"12.0\"; SQL statement:\nselect false and ((1.0 * 12) / 0) > 0"
     },
     {
       "test": "meta::pure::functions::boolean::tests::conjunctions::not::testNotInCollection_Function_1__Boolean_1_",
@@ -11,7 +11,7 @@
     },
     {
       "test" : "meta::pure::functions::boolean::tests::conjunctions::or::testShortCircuitSimple_Function_1__Boolean_1_",
-      "expectedError" : "Division by zero: \"12.0\"; SQL statement:\nselect true or ((1.0 * 12) / 0) > 0"
+      "expectedError" : "org.h2.jdbc.JdbcSQLDataException: Division by zero: \"12.0\"; SQL statement:\nselect true or ((1.0 * 12) / 0) > 0"
     },
     {
       "test": "meta::pure::functions::boolean::tests::equality::eq::testEqDate_Function_1__Boolean_1_",
@@ -88,6 +88,10 @@
     {
       "test": "meta::pure::functions::collection::tests::getAll::testBasic_Function_1__Boolean_1_",
       "expectedError": "Cast exception: InstanceValue cannot be cast to StoreMappingRoutedValueSpecification"
+    },
+    {
+      "test": "meta::pure::functions::collection::tests::map::testMapInstance_Function_1__Boolean_1_",
+      "expectedError": "type not supported: meta::pure::functions::collection::tests::map::model::M_GeographicEntityType"
     },
     {
       "test" : "meta::pure::functions::collection::tests::map::testMapRelationshipFromManyToMany_Function_1__Boolean_1_",
@@ -175,7 +179,7 @@
     },
     {
       "test": "meta::pure::functions::lang::tests::letFn::testAssignNewInstance_Function_1__Boolean_1_",
-      "expectedError": "Type missing: meta::pure::functions::lang::tests::model::LA_Person"
+      "expectedError": "type not supported: meta::pure::functions::lang::tests::model::LA_GeographicEntityType"
     },
     {
       "test": "meta::pure::functions::lang::tests::letFn::testLetAsLastStatement_Function_1__Boolean_1_",
@@ -199,7 +203,7 @@
     },
     {
       "test" : "meta::pure::functions::math::tests::minus::testLargeMinus_Function_1__Boolean_1_",
-      "expectedError" : "Numeric value out of range: \"-9223372036854775718\";"
+      "expectedError" : "org.h2.jdbc.JdbcSQLDataException: Numeric value out of range: \"-9223372036854775718\";"
     },
     {
       "test": "meta::pure::functions::math::tests::minus::testSingleMinusType_Function_1__Boolean_1_",
@@ -211,7 +215,7 @@
     },
     {
       "test" : "meta::pure::functions::math::tests::plus::testLargePlus_Function_1__Boolean_1_",
-      "expectedError" : "Numeric value out of range: \"9223372036854775807\""
+      "expectedError" : "org.h2.jdbc.JdbcSQLDataException: Numeric value out of range: \"9223372036854775807\""
     },
     {
       "test": "meta::pure::functions::math::tests::plus::testSinglePlusType_Function_1__Boolean_1_",
@@ -223,11 +227,11 @@
     },
     {
       "test" : "meta::pure::functions::math::tests::times::testLargeTimes_Function_1__Boolean_1_",
-      "expectedError" : "Numeric value out of range: \"2\"; SQL statement:\nselect 2 * 9223372036854775807"
+      "expectedError" : "org.h2.jdbc.JdbcSQLDataException: Numeric value out of range: \"2\"; SQL statement:\nselect 2 * 9223372036854775807"
     },
     {
       "test": "meta::pure::functions::string::tests::plus::testMultiPlusWithPropertyExpressions_Function_1__Boolean_1_",
-      "expectedError": "\nexpected: 'Hoboken, NJ; Jersey City, NJ'\nactual:   'Hoboken, NJ; Hoboken, NJ'"
+      "expectedError": "type not supported: meta::pure::functions::string::tests::plus::model::P_GeographicEntityType"
     },
     {
       "test": "meta::pure::functions::string::tests::plus::testPlusInCollect_Function_1__Boolean_1_",

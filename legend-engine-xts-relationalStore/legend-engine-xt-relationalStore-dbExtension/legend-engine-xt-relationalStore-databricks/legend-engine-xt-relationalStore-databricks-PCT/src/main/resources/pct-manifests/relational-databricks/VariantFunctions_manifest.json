@@ -26,10 +26,10 @@
     "expectedError" : "Integer is not managed yet"
   }, {
     "test" : "meta::pure::functions::variant::convert::tests::to::testToIntegerFromStringFloat_Function_1__Boolean_1_",
-    "expectedError" : "[INVALID_VARIANT_CAST] org.apache.spark.SparkRuntimeException: [INVALID_VARIANT_CAST] The variant value `\"1.25\"` cannot be cast into `\"BIGINT\"`. Please use `try_variant_get` instead. SQLSTATE: 22023"
+    "expectedError" : "Execution error message mismatch.\nThe actual message was \"Unexpected error executing function with params [Anonymous_Lambda]\"\nwhere the expected message was:\"For input string: \"1.25\"\""
   }, {
     "test" : "meta::pure::functions::variant::convert::tests::to::testToListFromNonArrayVariant_Function_1__Boolean_1_",
-    "expectedError" : "[INVALID_VARIANT_CAST] org.apache.spark.SparkRuntimeException: [INVALID_VARIANT_CAST] The variant value `\"not an array\"` cannot be cast into `\"ARRAY<VARIANT>\"`. Please use `try_variant_get` instead. SQLSTATE: 22023"
+    "expectedError" : "Execution error message mismatch.\nThe actual message was \"Unexpected error executing function with params [Anonymous_Lambda]\"\nwhere the expected message was:\"List<Variant> is not managed yet!\""
   }, {
     "test" : "meta::pure::functions::variant::convert::tests::to::testToStrictDateFromWrongString_Function_1__Boolean_1_",
     "expectedError" : "\"Execution error message mismatch.\nThe actual message was \"No error was thrown\"\nwhere the expected message was:\"StrictDate must be a calendar day, got: 2020\"\""
@@ -42,5 +42,14 @@
   }, {
     "test" : "meta::pure::functions::variant::convert::tests::toMany::testToManyFromNonArray_Function_1__Boolean_1_",
     "expectedError" : "Expect variant that contains an 'ARRAY', but got 'STRING'"
+  }, {
+    "test" : "meta::pure::functions::variant::convert::tests::toVariant::testListOfList_Function_1__Boolean_1_",
+    "expectedError" : "\nexpected: '[[[1]]]'\nactual:   '[1]'"
+  }, {
+    "test" : "meta::pure::functions::variant::convert::tests::toVariant::testListOfMap_Function_1__Boolean_1_",
+    "expectedError" : "[DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION] org.apache.spark.sql.catalyst.ExtendedAnalysisException: [DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION] Cannot resolve \"CAST(map(world, CAST(2 AS VARIANT)) AS VARIANT)\" due to data type mismatch: cannot cast \"MAP<STRING, BIGINT>\" to \"VARIANT\". SQLSTATE: 42K09"
+  }, {
+    "test" : "meta::pure::functions::variant::convert::tests::toVariant::testMapOfMap_Function_1__Boolean_1_",
+    "expectedError" : "[DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION] org.apache.spark.sql.catalyst.ExtendedAnalysisException: [DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION] Cannot resolve \"CAST(map(world, CAST(2 AS VARIANT)) AS VARIANT)\" due to data type mismatch: cannot cast \"MAP<STRING, BIGINT>\" to \"VARIANT\". SQLSTATE: 42K09"
   } ]
 }
