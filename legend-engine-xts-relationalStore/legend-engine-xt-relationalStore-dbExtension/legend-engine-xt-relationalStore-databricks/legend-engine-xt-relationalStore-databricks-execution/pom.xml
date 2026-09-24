@@ -143,9 +143,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <!-- Compile-scoped (unlike the rest of this module's Pure-compiler dependencies, which stay
+                 test-scoped): DatabricksErrorCleaningJdbcProxy throws PureExecutionException directly so
+                 that a raised SQLException reaches assertError's PureExecutionException-typed catch clause
+                 already in the right shape - see that class's Javadoc. -->
             <groupId>org.finos.legend.pure</groupId>
             <artifactId>legend-pure-m3-core</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.finos.legend.engine</groupId>
