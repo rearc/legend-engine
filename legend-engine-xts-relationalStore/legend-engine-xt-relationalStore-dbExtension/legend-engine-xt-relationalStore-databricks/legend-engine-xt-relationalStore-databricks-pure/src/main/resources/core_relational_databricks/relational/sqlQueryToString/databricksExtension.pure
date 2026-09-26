@@ -507,13 +507,28 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
         // instead, which Databricks does support for constructing a VARIANT from a MAP.
         if($func.name == 'toVariant' && $func.parameters->size() == 1 && $func.parameters->at(0)->isMapOperandForDatabricks(),
            | ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format='parse_json(to_json(%s))')),
-           | // Databricks represents Pure Integer as DECIMAL(19,0) for a genuine stored/declared
-             // column, but as BIGINT in computed/array contexts (parseInteger, range(), etc. - see
-             // the comments on those elsewhere in this file). array_position(ARRAY<BIGINT>, ...)
-             // then fails Spark's strict same-element-type check when the scalar search value is a
-             // real Integer column (DECIMAL(19,0)). Only cast the scalar operand when it is actually
-             // Integer-typed, so ARRAY<STRING>/ARRAY<DOUBLE> callers are untouched.
-             if($func.name == 'array_position' && $func.parameters->size() == 2
+           | // The same MAP-cannot-cast-to-VARIANT limitation applies one level deeper: each VALUE
+             // inside a `toVariantObject(k1,v1,k2,v2,...)` call (built for every `newMap(pair(...))`,
+             // see processNewMap in the shared pureToSQLQuery_variant.pure) is normally cast to VARIANT
+             // directly by the registered dynaFnToSql('toVariantObject', ...) default
+             // (transformToVariantObjectDatabricks below, now superseded/unreachable for this dialect -
+             // kept in place only as a harmless, no-longer-called reference). That default is wrong
+             // whenever a VALUE is itself a nested Map (e.g. newMap(pair('hello', newMap(pair('world',
+             // 2)))) - the inner map's own rendered SQL is already a native MAP<..> expression, and Spark
+             // rejects CAST(MAP<..> AS VARIANT) exactly as it does for the bare toVariant() case above.
+             // Precompute, per parameter (in the same order transform's own String[*] receives them,
+             // one-to-one with $func.parameters), whether that operand is itself Map-shaped, then route
+             // just that value through the parse_json(to_json(...)) round trip instead of a raw cast;
+             // every other (scalar) value keeps the exact same cast(%s as variant) rendering as before.
+             if($func.name == 'toVariantObject' && $func.parameters->isNotEmpty(),
+                | buildToVariantObjectDynaFunctionToSqlForDatabricks($func);,
+                | // Databricks represents Pure Integer as DECIMAL(19,0) for a genuine stored/declared
+                  // column, but as BIGINT in computed/array contexts (parseInteger, range(), etc. - see
+                  // the comments on those elsewhere in this file). array_position(ARRAY<BIGINT>, ...)
+                  // then fails Spark's strict same-element-type check when the scalar search value is a
+                  // real Integer column (DECIMAL(19,0)). Only cast the scalar operand when it is actually
+                  // Integer-typed, so ARRAY<STRING>/ARRAY<DOUBLE> callers are untouched.
+                  if($func.name == 'array_position' && $func.parameters->size() == 2
                   && meta::relational::functions::typeInference::inferRelationalType($func.parameters->at(1), false)->isNotEmpty()
                   && meta::relational::functions::typeInference::inferRelationalType($func.parameters->at(1), false)->toOne()->instanceOf(meta::relational::metamodel::datatype::Integer),
                 | ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format='ifnull(array_position(%s, cast(%s as bigint)) - 1, -1)')),
@@ -559,6 +574,7 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
                             )
                        )
                   )
+             )
              )
         )
    );
@@ -622,6 +638,27 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
 {
    let inferred = meta::relational::functions::typeInference::inferRelationalType($op, false);
    $inferred->isNotEmpty() && $inferred->toOne()->instanceOf(meta::relational::metamodel::datatype::Object);
+}
+
+// Renders one already-rendered `toVariantObject(...)` VALUE argument: a Map-shaped value (itself the
+// output of a nested `toVariantObject(...)`+`cast(..., MAP<K,V>)` construction, see
+// dynaFuncDispatchForDatabricksNonQuantified's own `toVariantObject` branch above) needs the same
+// parse_json(to_json(...)) round trip used for a bare top-level toVariant() operand - Spark has no
+// direct CAST(MAP<..> AS VARIANT). Every other (scalar) value keeps the original cast(%s as variant).
+function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::buildToVariantObjectDynaFunctionToSqlForDatabricks(func:DynaFunction[1]):DynaFunctionToSql[1]
+{
+   let valueIsMap = $func.parameters->map(p | $p->isMapOperandForDatabricks());
+   ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format='map(%s)', transform = {p:String[*] |
+      range(0, $p->size(), 2)->map(i | $p->at($i) + ', ' + castVariantObjectValueForDatabricks($p->at($i + 1), $valueIsMap->at($i + 1)))->joinStrings(', ')
+   }));
+}
+
+function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::castVariantObjectValueForDatabricks(value:String[1], isMap:Boolean[1]):String[1]
+{
+   if($isMap,
+      | 'parse_json(to_json(' + $value + '))',
+      | 'cast(' + $value + ' as variant)'
+   );
 }
 
 // True when the operand renders to a Databricks VARIANT value: a semi-structured navigation, or any
