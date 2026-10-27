@@ -18,9 +18,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.CacheStats;
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.block.function.Function;
@@ -91,18 +91,18 @@ import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.jax.rs.annotations.Pac4JProfileManager;
 import org.slf4j.Logger;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,7 +111,7 @@ import java.util.stream.Collectors;
 import static java.lang.String.format;
 import static org.finos.legend.engine.shared.core.operational.http.InflateInterceptor.APPLICATION_ZLIB;
 
-@Api(tags = "DataQuality - Execution")
+@Tag(name = "DataQuality - Execution")
 @Path("pure/v1/dataquality")
 @Produces(MediaType.APPLICATION_JSON)
 public class DataQualityExecute
@@ -141,7 +141,7 @@ public class DataQualityExecute
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     //@Prometheus(name = "generate plan")
-    public Response generatePlan(DataQualityExecuteTrialInput dataQualityExecuteInput, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm)
+    public Response generatePlan(DataQualityExecuteTrialInput dataQualityExecuteInput, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -163,7 +163,7 @@ public class DataQualityExecute
     @Path("debugPlan")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response generatePlanDebug(DataQualityExecuteTrialInput dataQualityExecuteInput, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm)
+    public Response generatePlanDebug(DataQualityExecuteTrialInput dataQualityExecuteInput, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -185,7 +185,7 @@ public class DataQualityExecute
     @Path("generatePlan/relation-validation/rowcount")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response generatePlanRowCount(DataQualityExecuteTrialInput dataQualityExecuteInput, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm)
+    public Response generatePlanRowCount(DataQualityExecuteTrialInput dataQualityExecuteInput, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -208,7 +208,7 @@ public class DataQualityExecute
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     //@Prometheus(name = "generate plan")
-    public Response execute(@Context HttpServletRequest request, DataQualityExecuteTrialInput dataQualityExecuteInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm, @Context UriInfo uriInfo)
+    public Response execute(@Context HttpServletRequest request, DataQualityExecuteTrialInput dataQualityExecuteInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm, @Context UriInfo uriInfo)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -237,7 +237,7 @@ public class DataQualityExecute
     @Path("execute/relation-validation/rowcount")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response executeRowCount(@Context HttpServletRequest request, DataQualityExecuteTrialInput dataQualityExecuteInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm, @Context UriInfo uriInfo)
+    public Response executeRowCount(@Context HttpServletRequest request, DataQualityExecuteTrialInput dataQualityExecuteInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm, @Context UriInfo uriInfo)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -266,7 +266,7 @@ public class DataQualityExecute
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     //@Prometheus(name = "data profile")
-    public Response profile(@Context HttpServletRequest request, DataQualityProfileInput dataQualityProfilingInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @DefaultValue("true") @QueryParam("excludePlatformColumns") boolean excludePlatformColumns, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm)
+    public Response profile(@Context HttpServletRequest request, DataQualityProfileInput dataQualityProfilingInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @DefaultValue("true") @QueryParam("excludePlatformColumns") boolean excludePlatformColumns, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -302,7 +302,7 @@ public class DataQualityExecute
     @Path("ruleSuggestions")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public List<RelationValidation> ruleSuggestions(@Context HttpServletRequest request, DataQualityProfileInput dataQualityProfilingInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @DefaultValue("true") @QueryParam("excludePlatformColumns") boolean excludePlatformColumns, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm)
+    public List<RelationValidation> ruleSuggestions(@Context HttpServletRequest request, DataQualityProfileInput dataQualityProfilingInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @DefaultValue("true") @QueryParam("excludePlatformColumns") boolean excludePlatformColumns, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -340,7 +340,7 @@ public class DataQualityExecute
     @Path("reconciliation")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response reconciliation(@Context HttpServletRequest request, DataQualityReconInput dataQualityReconInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm)
+    public Response reconciliation(@Context HttpServletRequest request, DataQualityReconInput dataQualityReconInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -362,7 +362,7 @@ public class DataQualityExecute
     @Path("reconciliation/executeArtifacts")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response reconciliationUsingPreGeneratedPlan(@Context HttpServletRequest request, DataQualityReconCachedPlanInput dataQualityReconCachedPlanInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm)
+    public Response reconciliationUsingPreGeneratedPlan(@Context HttpServletRequest request, DataQualityReconCachedPlanInput dataQualityReconCachedPlanInput, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -397,7 +397,7 @@ public class DataQualityExecute
 
     @GET
     @Path("reconciliationCache/stats")
-    @ApiOperation(value = "Provides stats of reconciliation cache")
+    @Operation(summary = "Provides stats of reconciliation cache")
     public Response reconciliationCacheStats(@Context HttpServletRequest request)
     {
         try
@@ -423,7 +423,7 @@ public class DataQualityExecute
     @Path("reconciliation/generatePlan")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response reconciliationPlanGeneration(DataQualityReconInput dataQualityReconInput, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm)
+    public Response reconciliationPlanGeneration(DataQualityReconInput dataQualityReconInput, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -449,16 +449,12 @@ public class DataQualityExecute
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> sourceLambdaFunction = dqComparisonElement == null ? HelperValueSpecificationBuilder.buildLambda(input.source, pureModel.getContext()) : dqComparisonElement._source();
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> targetLambdaFunction = dqComparisonElement == null ? HelperValueSpecificationBuilder.buildLambda(input.target, pureModel.getContext()) : dqComparisonElement._target();
         org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> dqLambdaFunction;
-
-        if (!core_dataquality_generation_dataquality.Root_meta_external_dataquality_isEndingWithFromFunction_FunctionDefinition_1__Boolean_1_(sourceLambdaFunction, pureModel.getExecutionSupport()))
-        {
-            throw new EngineException("The source query for the Data Quality Recon Input does not end with a 'from' so unable to execute it.", ExceptionCategory.USER_EXECUTION_ERROR);
-        }
-        if (!core_dataquality_generation_dataquality.Root_meta_external_dataquality_isEndingWithFromFunction_FunctionDefinition_1__Boolean_1_(targetLambdaFunction, pureModel.getExecutionSupport()))
-        {
-            throw new EngineException("The target query for the Data Quality Recon Input does not end with a 'from' so unable to execute it.", ExceptionCategory.USER_EXECUTION_ERROR);
-        }
         MutableMap<String, Object> lambdaParameterMap = Maps.mutable.empty();
+
+        if (input.runSourceQuery || input.runTargetQuery)
+        {
+            validateQueriesEndWithFrom(pureModel, sourceLambdaFunction, targetLambdaFunction);
+        }
 
         if (input.runSourceQuery)
         {
@@ -484,8 +480,9 @@ public class DataQualityExecute
         {
             // 1. create DQ recon input
             Root_meta_external_dataquality_datarecon_DataQualityReconInput reconInput = createReconInput(pureModel, dqComparisonElement, input, sourceLambdaFunction, targetLambdaFunction);
-            // 2. call DQ PURE func to generate recon lambda
-            dqLambdaFunction = DataQualityReconLambdaGenerator.generateLambda(pureModel, reconInput);
+            // 2. call DQ PURE func to generate recon lambda - before the from checks so that its source/target query rule violations are reported first
+            dqLambdaFunction = DataQualityReconLambdaGenerator.generateLambda(pureModel, reconInput, this.extensions.apply(pureModel));
+            validateQueriesEndWithFrom(pureModel, sourceLambdaFunction, targetLambdaFunction);
             // 3. build parameter map with source_/target_ prefixes for the recon lambda
             if (input.sourceLambdaParameterValues != null)
             {
@@ -501,6 +498,18 @@ public class DataQualityExecute
         SingleExecutionPlan plan = PlanGenerator.generateExecutionPlan(dqLambdaFunction, null, null, null, pureModel, input.clientVersion, PlanPlatform.JAVA, null, this.extensions.apply(pureModel), this.transformers);
         LOGGER.info(new LogInfo(identity.getName(), DataQualityLoggingEventType.DATAQUALITY_RECON_END, System.currentTimeMillis() - start).toString());
         return Tuples.pair(plan, lambdaParameterMap);
+    }
+
+    private static void validateQueriesEndWithFrom(PureModel pureModel, org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> sourceLambdaFunction, org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.function.LambdaFunction<?> targetLambdaFunction)
+    {
+        if (!core_dataquality_generation_dataquality.Root_meta_external_dataquality_isEndingWithFromFunction_FunctionDefinition_1__Boolean_1_(sourceLambdaFunction, pureModel.getExecutionSupport()))
+        {
+            throw new EngineException("The source query for the Data Quality Recon Input does not end with a 'from' so unable to execute it.", ExceptionCategory.USER_EXECUTION_ERROR);
+        }
+        if (!core_dataquality_generation_dataquality.Root_meta_external_dataquality_isEndingWithFromFunction_FunctionDefinition_1__Boolean_1_(targetLambdaFunction, pureModel.getExecutionSupport()))
+        {
+            throw new EngineException("The target query for the Data Quality Recon Input does not end with a 'from' so unable to execute it.", ExceptionCategory.USER_EXECUTION_ERROR);
+        }
     }
 
     private Result getDataReconciliation(HttpServletRequest request, PureModel pureModel, DataQualityReconInput input, long start, Identity identity)
@@ -601,7 +610,7 @@ public class DataQualityExecute
     @Path("lambda")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response lambda(@Context HttpServletRequest request, DataQualityExecuteTrialInput dataQualityExecuteInput, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm, @Context UriInfo uriInfo)
+    public Response lambda(@Context HttpServletRequest request, DataQualityExecuteTrialInput dataQualityExecuteInput, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm, @Context UriInfo uriInfo)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -616,10 +625,10 @@ public class DataQualityExecute
 
     @POST
     @Path("relationType")
-    @ApiOperation(value = "Get the relation type (output columns) of the engine-generated lambda for a DQ element. Dispatches by element type at the given package path: DataQualityRelationValidation uses the breaks lambda; DataQualityRelationComparison uses the reconciliation lambda.")
+    @Operation(summary = "Get the relation type (output columns) of the engine-generated lambda for a DQ element. Dispatches by element type at the given package path: DataQualityRelationValidation uses the breaks lambda; DataQualityRelationComparison uses the reconciliation lambda.")
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response relationType(DataQualityExecuteTrialInput dataQualityExecuteInput, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm)
+    public Response relationType(DataQualityExecuteTrialInput dataQualityExecuteInput, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -630,8 +639,8 @@ public class DataQualityExecute
             PureModel pureModel = this.modelManager.loadModel(dataQualityExecuteInput.model, dataQualityExecuteInput.clientVersion, identity, null);
             PackageableElement packageableElement = pureModel.getPackageableElement(dataQualityExecuteInput.packagePath);
             org.finos.legend.pure.m3.coreinstance.meta.pure.metamodel.relation.RelationType<?> pureRelationType =
-                    core_dataquality_generation_lambda_relation_type.Root_meta_external_dataquality_lambdaRelationType_getLambdaRelationType_PackageableElement_1__Function_1__RelationType_1_(
-                            packageableElement, DataQualityProfilingLambdaGenerator.getLambdaCompiler(pureModel), pureModel.getExecutionSupport());
+                    core_dataquality_generation_lambda_relation_type.Root_meta_external_dataquality_lambdaRelationType_getLambdaRelationType_PackageableElement_1__Function_1__Extension_MANY__RelationType_1_(
+                            packageableElement, DataQualityProfilingLambdaGenerator.getLambdaCompiler(pureModel), this.extensions.apply(pureModel), pureModel.getExecutionSupport());
             org.finos.legend.engine.protocol.pure.m3.relation.RelationType relationType =
                     RelationTypeHelper.convert(pureRelationType, pureModel);
             LOGGER.info(new LogInfo(identity.getName(), DataQualityExecutionLoggingEventType.DATAQUALITY_RELATION_TYPE_END, System.currentTimeMillis() - start).toString());
@@ -648,7 +657,7 @@ public class DataQualityExecute
     @Consumes({MediaType.APPLICATION_JSON, APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     //@Prometheus(name = "generate plan")
-    public Response execute(@Context HttpServletRequest request, DataQualityExecuteInput dataQualityParameterValue, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm, @Context UriInfo uriInfo)
+    public Response execute(@Context HttpServletRequest request, DataQualityExecuteInput dataQualityParameterValue, @DefaultValue(SerializationFormat.defaultFormatString) @QueryParam("serializationFormat") SerializationFormat format, @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm, @Context UriInfo uriInfo)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -703,11 +712,11 @@ public class DataQualityExecute
 
     @POST
     @Path("propertyPathTree")
-    @ApiOperation(value = "Analyze the DataQuality tree to generate property path tree for given constraints")
+    @Operation(summary = "Analyze the DataQuality tree to generate property path tree for given constraints")
     @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     public Response generatePropertyPathTree(DataQualityExecuteTrialInput input,
-                                             @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+                                             @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);
         Identity identity = Identity.makeIdentity(profiles);
@@ -741,7 +750,7 @@ public class DataQualityExecute
             @DefaultValue(SerializationFormat.defaultFormatString)
             @QueryParam("serializationFormat") SerializationFormat format,
             @DefaultValue("true") @QueryParam("excludePlatformColumns") boolean excludePlatformColumns,
-            @ApiParam(hidden = true) @Pac4JProfileManager() ProfileManager<CommonProfile> pm,
+            @Parameter(hidden = true) @Pac4JProfileManager() ProfileManager pm,
             @Context UriInfo uriInfo)
     {
         MutableList<CommonProfile> profiles = ProfileManagerHelper.extractProfiles(pm);

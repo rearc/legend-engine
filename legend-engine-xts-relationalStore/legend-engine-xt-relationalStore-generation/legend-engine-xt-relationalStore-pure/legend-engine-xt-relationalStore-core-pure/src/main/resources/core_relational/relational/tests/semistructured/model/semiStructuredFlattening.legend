@@ -120,9 +120,9 @@ Mapping flatten::relationFunctionMapping::H2Mapping
   *flatten::model::Person: Relation 
   {
     ~func flatten::personFunction():Relation<Any>[1]
-    firstName: $src.FIRSTNAME->toOne(),
-    lastName: $src.LASTNAME->toOne(),
-    firm: Binding flatten::store::FirmBinding : $src.FIRM_DETAILS->toOne()
+    firstName: $row.FIRSTNAME->toOne(),
+    lastName: $row.LASTNAME->toOne(),
+    firm: Binding flatten::store::FirmBinding : $row.FIRM_DETAILS->toOne()
   }
 )
 
@@ -248,7 +248,7 @@ function flatten::semiStructuredMultiLevelFlattening(): TabularDataSet[1]
     ->project([
         col(x | $x.firstName, 'First Name'),
         col(x | $x.firm.legalName, 'Firm Name'),
-        col(x | $x.firm.addresses->filter(a | $a.name == 'A')->subType(@flatten::model::AddressWithLines).lines.lineno, 'Firm Address Name Line No')
+        col(x | $x.firm.addresses->filter(a | $a.name == 'A1')->subType(@flatten::model::AddressWithLines).lines.lineno, 'Firm Address Name Line No')
     ])
 }
 

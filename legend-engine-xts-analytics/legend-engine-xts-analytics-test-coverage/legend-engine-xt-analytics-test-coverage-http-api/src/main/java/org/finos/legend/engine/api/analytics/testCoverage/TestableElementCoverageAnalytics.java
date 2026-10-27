@@ -17,17 +17,15 @@ package org.finos.legend.engine.api.analytics.testCoverage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.opentracing.Scope;
 import io.opentracing.util.GlobalTracer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.collections.impl.factory.Lists;
 import org.finos.legend.engine.api.analytics.testCoverage.model.TestableElementCoverageInput;
 import org.finos.legend.engine.api.analytics.testCoverage.model.TestableElementCoverageResult;
 import org.finos.legend.engine.api.analytics.testCoverage.model.TestableElementInfo;
 import org.finos.legend.engine.language.pure.modelManager.ModelManager;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
-import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.mapping.Mapping;
-import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.service.Service;
 import org.finos.legend.engine.shared.core.ObjectMapperFactory;
 import org.finos.legend.engine.shared.core.api.result.ManageConstantResult;
 import org.finos.legend.engine.shared.core.identity.Identity;
@@ -35,20 +33,21 @@ import org.finos.legend.engine.shared.core.kerberos.ProfileManagerHelper;
 import org.finos.legend.engine.shared.core.operational.errorManagement.ExceptionTool;
 import org.finos.legend.engine.shared.core.operational.http.InflateInterceptor;
 import org.finos.legend.engine.shared.core.operational.logs.LoggingEventType;
-import org.pac4j.core.profile.CommonProfile;
+import org.finos.legend.engine.testable.api.TestableElementCoverageAnalyzer;
 import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.jax.rs.annotations.Pac4JProfileManager;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-@Api(tags = "Analytics - Test Coverage")
+@Tag(name = "Analytics - Test Coverage")
 @Path("pure/v1/analytics/testCoverage")
 public class TestableElementCoverageAnalytics
 {
@@ -63,11 +62,11 @@ public class TestableElementCoverageAnalytics
 
     @POST
     @Path("testableElementCoverage")
-    @ApiOperation(value = "Analyze the testable element coverage for services and mappings in a project")
+    @Operation(summary = "Analyze the testable element coverage for services and mappings in a project")
     @Consumes({MediaType.APPLICATION_JSON, InflateInterceptor.APPLICATION_ZLIB})
     @Produces(MediaType.APPLICATION_JSON)
     public Response analyzeTestableElementCoverage(TestableElementCoverageInput input,
-                                                   @ApiParam(hidden = true) @Pac4JProfileManager ProfileManager<CommonProfile> pm)
+                                                   @Parameter(hidden = true) @Pac4JProfileManager ProfileManager pm)
     {
         Identity identity = Identity.makeIdentity(ProfileManagerHelper.extractProfiles(pm));
         PureModelContextData pureModelContextData = this.modelManager.loadData(input.model, input.clientVersion, identity);
@@ -76,19 +75,8 @@ public class TestableElementCoverageAnalytics
         {
             try
             {
-                List<TestableElementInfo> services = pureModelContextData.getElements().stream()
-                        .filter(e -> e instanceof Service)
-                        .map(e -> (Service) e)
-                        .map(TestableElementCoverageAnalytics::analyzeService)
-                        .collect(Collectors.toList());
-
-                List<TestableElementInfo> mappings = pureModelContextData.getElements().stream()
-                        .filter(e -> e instanceof Mapping)
-                        .map(e -> (Mapping) e)
-                        .map(TestableElementCoverageAnalytics::analyzeMapping)
-                        .collect(Collectors.toList());
-
-                TestableElementCoverageResult result = new TestableElementCoverageResult(services, mappings);
+                org.finos.legend.engine.testable.api.model.TestableElementCoverageResult analyzed = TestableElementCoverageAnalyzer.analyze(pureModelContextData);
+                TestableElementCoverageResult result = toLocalResult(analyzed);
                 return ManageConstantResult.manageResult(identity.getName(), result, objectMapper);
             }
             catch (Exception e)
@@ -98,20 +86,13 @@ public class TestableElementCoverageAnalytics
         }
     }
 
-    private static TestableElementInfo analyzeService(Service service)
+    static TestableElementCoverageResult toLocalResult(org.finos.legend.engine.testable.api.model.TestableElementCoverageResult analyzed)
     {
-        boolean hasTestSuites = service.testSuites != null && !service.testSuites.isEmpty();
-        boolean hasLegacyTests = service.test != null;
-        int testSuiteCount = hasTestSuites ? service.testSuites.size() : 0;
-        return new TestableElementInfo(service.getPath(), "Service", hasTestSuites, hasLegacyTests, testSuiteCount);
-    }
-
-    private static TestableElementInfo analyzeMapping(Mapping mapping)
-    {
-        boolean hasTestSuites = mapping.testSuites != null && !mapping.testSuites.isEmpty();
-        boolean hasLegacyTests = mapping.tests != null && !mapping.tests.isEmpty();
-        int testSuiteCount = hasTestSuites ? mapping.testSuites.size() : 0;
-        return new TestableElementInfo(mapping.getPath(), "Mapping", hasTestSuites, hasLegacyTests, testSuiteCount);
+        Map<String, List<TestableElementInfo>> elementsByType = analyzed.elementsByType.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().stream()
+                        .map(info -> new TestableElementInfo(info.path, info.type, info.hasTestSuites, info.hasLegacyTests, info.testSuiteCount))
+                        .collect(Collectors.toList())));
+        return new TestableElementCoverageResult(elementsByType);
     }
 }
 

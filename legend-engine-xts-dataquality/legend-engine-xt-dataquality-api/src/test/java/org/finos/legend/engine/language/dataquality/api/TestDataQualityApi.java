@@ -17,9 +17,10 @@ package org.finos.legend.engine.language.dataquality.api;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
 
-import javax.ws.rs.client.Entity;
+import jakarta.ws.rs.client.Entity;
 
 import org.eclipse.collections.api.factory.Sets;
 import org.eclipse.collections.impl.list.mutable.FastList;
@@ -35,6 +36,7 @@ import org.finos.legend.engine.plan.generation.transformers.LegendPlanTransforme
 import org.finos.legend.engine.protocol.dataquality.metamodel.RelationValidation;
 import org.finos.legend.engine.protocol.pure.PureClientVersions;
 import org.finos.legend.engine.protocol.pure.m3.function.LambdaFunction;
+import org.finos.legend.engine.protocol.pure.m3.valuespecification.constant.datatype.primitive.CInteger;
 import org.finos.legend.engine.protocol.pure.m3.valuespecification.constant.datatype.primitive.CString;
 import org.finos.legend.engine.protocol.pure.v1.model.packageableElement.domain.ParameterValue;
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextData;
@@ -42,33 +44,34 @@ import org.finos.legend.engine.protocol.pure.dsl.graph.valuespecification.consta
 import org.finos.legend.engine.protocol.pure.v1.model.context.PureModelContextPointer;
 import org.finos.legend.engine.pure.code.core.PureCoreExtensionLoader;
 import org.finos.legend.engine.shared.core.ObjectMapperFactory;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response;
 import org.finos.legend.engine.shared.core.deployment.DeploymentMode;
 import org.finos.legend.engine.shared.core.identity.Identity;
 import org.finos.legend.pure.generated.Root_meta_external_dataquality_DataQuality;
 import org.glassfish.jersey.test.TestProperties;
-import org.junit.ClassRule;
-import org.junit.Ignore;
+import org.junit.jupiter.api.Disabled;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@org.junit.jupiter.api.extension.ExtendWith(DropwizardExtensionsSupport.class)
 public class TestDataQualityApi
 {
 
@@ -79,11 +82,9 @@ public class TestDataQualityApi
 
     private static final ObjectMapper objectMapper = ObjectMapperFactory.getNewStandardObjectMapperWithPureProtocolExtensionSupports();
     private static final PureModelContextData pureModelContextData = GrammarParseTestUtils.loadPureModelContextFromResource("inputs/test-data.pure", TestDataQualityApi.class);
+    public static final ResourceExtension resources = getResourceTestRule();
 
-    @ClassRule
-    public static final ResourceTestRule resources = getResourceTestRule();
-
-    public static ResourceTestRule getResourceTestRule()
+    public static ResourceExtension getResourceTestRule()
 
     {
         DeploymentMode deploymentMode = DeploymentMode.TEST;
@@ -105,7 +106,7 @@ public class TestDataQualityApi
                 null
         );
 
-        return ResourceTestRule.builder()
+        return ResourceExtension.builder()
                 .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                 .addResource(api)
                 .addResource(new MockPac4jFeature())
@@ -274,12 +275,188 @@ public class TestDataQualityApi
         assertNotNull(resultAsString);
     }
 
+    @Test
+    public void testDataQualityRecon_multiStatementBothSidesWithDistinctRelationLets() throws IOException
+    {
+        DataQualityReconInput input = relationApiReconInput(
+                "{|let olderThan26 = #>{demo::PersonDB.PERSON_TBL}#->filter(r | $r.AGE->isNotEmpty() && ($r.AGE->toOne() > 26))->select(~[ID, FULL_NAME]); $olderThan26->from(demo::PersonRuntime);}",
+                "{|let positiveIds = #>{demo::PersonDB.PERSON_TBL}#->filter(r | $r.ID > 0)->select(~[ID, FULL_NAME]); $positiveIds->from(demo::PersonRuntime);}");
+
+        assertEquals(Sets.mutable.of("-1", "2", "4"), reconDefectKeys(postRecon(input), "ID"));
+    }
+
+    @Test
+    public void testDataQualityRecon_multiStatementLetReferencingParameter() throws IOException
+    {
+        DataQualityReconInput input = relationApiReconInput(
+                "{minId:Integer[1]|let threshold = $minId; #>{demo::PersonDB.PERSON_TBL}#->filter(r | $r.ID > $threshold)->select(~[ID, FULL_NAME])->from(demo::PersonRuntime);}",
+                "|#>{demo::PersonDB.PERSON_TBL}#->select(~[ID, FULL_NAME])->from(demo::PersonRuntime)");
+        input.sourceLambdaParameterValues = Collections.singletonList(createParameterValue("minId", new CInteger(2L)));
+
+        assertEquals(Sets.mutable.of("-1", "1", "2"), reconDefectKeys(postRecon(input), "ID"));
+    }
+
+    @Test
+    public void testDataQualityRecon_multiStatementSameScalarLetNameOnBothSides() throws IOException
+    {
+        DataQualityReconInput input = relationApiReconInput(
+                "{|let minId = 0; #>{demo::PersonDB.PERSON_TBL}#->filter(r | $r.ID > $minId)->select(~[ID, FULL_NAME])->from(demo::PersonRuntime);}",
+                "{|let minId = 2; #>{demo::PersonDB.PERSON_TBL}#->filter(r | $r.ID > $minId)->select(~[ID, FULL_NAME])->from(demo::PersonRuntime);}");
+
+        assertEquals(Sets.mutable.of("1", "2"), reconDefectKeys(postRecon(input), "ID"));
+    }
+
+    @Test
+    public void testDataQualityRecon_multiStatementClassBasedProject() throws IOException
+    {
+        DataQualityReconInput input = new DataQualityReconInput();
+        input.clientVersion = "vX_X_X";
+        input.model = new PureModelContextPointer();
+        input.source = lambda("{|let minAge = 26; demo::Person.all()->filter(x | $x.age->isNotEmpty() && ($x.age->toOne() > $minAge))->project(~[id: x|$x.id, fullName: x|$x.fullName])->from(demo::PersonMap, demo::PersonRuntime);}");
+        input.target = lambda("|demo::Person.all()->project(~[id: x|$x.id, fullName: x|$x.fullName])->from(demo::PersonMap, demo::PersonRuntime)");
+        input.keys = new LinkedHashSet<>(Collections.singletonList("id"));
+        input.colsForHash = new LinkedHashSet<>(Collections.singletonList("fullName"));
+
+        assertEquals(Sets.mutable.of("2", "4"), reconDefectKeys(postRecon(input), "id"));
+    }
+
+    @Test
+    public void testDataQualityRecon_multiStatementLegacyTdsProject() throws IOException
+    {
+        DataQualityReconInput input = new DataQualityReconInput();
+        input.clientVersion = "vX_X_X";
+        input.model = new PureModelContextPointer();
+        input.source = lambda("{|let minAge = 26; demo::Person.all()->filter(x | $x.age->isNotEmpty() && ($x.age->toOne() > $minAge))->project([x|$x.id, x|$x.fullName], ['id', 'fullName'])->from(demo::PersonMap, demo::PersonRuntime);}");
+        input.target = lambda("|demo::Person.all()->project([x|$x.id, x|$x.fullName], ['id', 'fullName'])->from(demo::PersonMap, demo::PersonRuntime)");
+        input.keys = new LinkedHashSet<>(Collections.singletonList("id"));
+        input.colsForHash = new LinkedHashSet<>(Collections.singletonList("fullName"));
+
+        assertEquals(Sets.mutable.of("2", "4"), reconDefectKeys(postRecon(input), "id"));
+    }
+
+    @Test
+    public void testDataQualityReconPlan_multiStatementBothSidesGeneratesCommonTableExpressions() throws IOException
+    {
+        DataQualityReconInput input = relationApiReconInput(
+                "{|let olderThan26 = #>{demo::PersonDB.PERSON_TBL}#->filter(r | $r.AGE->isNotEmpty() && ($r.AGE->toOne() > 26))->select(~[ID, FULL_NAME]); $olderThan26->from(demo::PersonRuntime);}",
+                "{|let positiveIds = #>{demo::PersonDB.PERSON_TBL}#->filter(r | $r.ID > 0)->select(~[ID, FULL_NAME]); $positiveIds->from(demo::PersonRuntime);}");
+
+        Response response = resources.target("pure/v1/dataquality/reconciliation/generatePlan")
+                .request()
+                .post(Entity.json(input));
+
+        String resultAsString = response.readEntity(String.class);
+        assertEquals(200, response.getStatus(), resultAsString);
+        List<String> sqlQueries = objectMapper.readTree(resultAsString).findValues("sqlQuery").stream().map(JsonNode::asText).collect(Collectors.toList());
+        assertTrue(sqlQueries.stream().anyMatch(sql -> definesCommonTableExpression(sql, "olderThan26") && definesCommonTableExpression(sql, "positiveIds")), resultAsString);
+    }
+
+    @Test
+    public void testDataQualityReconReportsQueryRuleViolationBeforeMissingFromCheck()
+    {
+        DataQualityReconInput input = relationApiReconInput(
+                "|#>{demo::PersonDB.PERSON_TBL}#->select(~[ID, FULL_NAME])->from(demo::PersonRuntime)",
+                "{|let people = #>{demo::PersonDB.PERSON_TBL}#->select(~[ID, FULL_NAME])->from(demo::PersonRuntime); $people;}");
+
+        Response response = resources.target("pure/v1/dataquality/reconciliation")
+                .request()
+                .post(Entity.json(input));
+
+        assertEquals(500, response.getStatus());
+        String resultAsString = response.readEntity(String.class);
+        assertTrue(resultAsString.contains("The 'from' function is not supported inside let 'people' of the target query; apply 'from' to the final expression only"), resultAsString);
+    }
+
+    @Test
+    public void testDataQualityRecon_runSourceQueryIsNotSubjectToReconQueryRules() throws IOException
+    {
+        DataQualityReconInput input = relationApiReconInput(
+                "{minId:Integer[1]|let source_minId = 0; #>{demo::PersonDB.PERSON_TBL}#->filter(r | $r.ID > $source_minId)->select(~[ID, FULL_NAME])->from(demo::PersonRuntime);}",
+                "|#>{demo::PersonDB.PERSON_TBL}#->select(~[ID, FULL_NAME])->from(demo::PersonRuntime)");
+        input.runSourceQuery = true;
+        input.sourceLambdaParameterValues = Collections.singletonList(createParameterValue("minId", new CInteger(0L)));
+
+        Response response = resources.target("pure/v1/dataquality/reconciliation")
+                .request()
+                .post(Entity.json(input));
+
+        String resultAsString = response.readEntity(String.class);
+        assertEquals(200, response.getStatus(), resultAsString);
+    }
+
+    private static boolean definesCommonTableExpression(String sql, String name)
+    {
+        return Pattern.compile("(?<!\\w)\"?" + Pattern.quote(name) + "\"?\\s+as\\s*\\(", Pattern.CASE_INSENSITIVE).matcher(sql).find();
+    }
+
+    private DataQualityReconInput relationApiReconInput(String source, String target)
+    {
+        DataQualityReconInput input = new DataQualityReconInput();
+        input.clientVersion = "vX_X_X";
+        input.model = new PureModelContextPointer();
+        input.source = lambda(source);
+        input.target = lambda(target);
+        input.keys = new LinkedHashSet<>(Collections.singletonList("ID"));
+        input.colsForHash = new LinkedHashSet<>(Collections.singletonList("FULL_NAME"));
+        return input;
+    }
+
+    private String postRecon(DataQualityReconInput input)
+    {
+        Response response = resources.target("pure/v1/dataquality/reconciliation")
+                .request()
+                .post(Entity.json(input));
+        String resultAsString = response.readEntity(String.class);
+        assertEquals(200, response.getStatus(), resultAsString);
+        return resultAsString;
+    }
+
+    private Set<String> reconDefectKeys(String reconResult, String key) throws IOException
+    {
+        JsonNode result = objectMapper.readTree(reconResult);
+        JsonNode columns = result.path("builder").path("columns");
+        JsonNode rows = result.path("result").path("rows");
+        assertTrue(rows.isArray(), reconResult);
+
+        int sourceKeyIndex = -1;
+        int targetKeyIndex = -1;
+        for (int i = 0; i < columns.size(); i++)
+        {
+            String columnName = columns.get(i).path("name").asText();
+            if ((key + "_SOURCE").equals(columnName))
+            {
+                sourceKeyIndex = i;
+            }
+            else if ((key + "_TARGET").equals(columnName))
+            {
+                targetKeyIndex = i;
+            }
+        }
+        assertTrue(sourceKeyIndex >= 0 && targetKeyIndex >= 0, key + "_SOURCE/_TARGET columns not found in " + columns);
+
+        Set<String> defectKeys = new LinkedHashSet<>();
+        for (JsonNode row : rows)
+        {
+            JsonNode sourceKey = row.path("values").get(sourceKeyIndex);
+            defectKeys.add(sourceKey.isNull() ? row.path("values").get(targetKeyIndex).asText() : sourceKey.asText());
+        }
+        return defectKeys;
+    }
+
     private LambdaFunction lambda(String code)
     {
         return PureGrammarParser.newInstance().parseLambda(code, "", false);
     }
 
     private ParameterValue createParameterValue(String name, CString value)
+    {
+        ParameterValue parameterValue = new ParameterValue();
+        parameterValue.name = name;
+        parameterValue.value = value;
+        return parameterValue;
+    }
+
+    private ParameterValue createParameterValue(String name, CInteger value)
     {
         ParameterValue parameterValue = new ParameterValue();
         parameterValue.name = name;
@@ -303,7 +480,7 @@ public class TestDataQualityApi
         assertFalse(DataQualityPropertyPathTreeGenerator.isDataQualityInstance(packageableElement2));
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testDataQualityGetPropertyPathTree_WithNullDataQualityValidation() throws IOException
     {
@@ -362,14 +539,14 @@ public class TestDataQualityApi
         if (columns.isMissingNode())
         {
             // Fallback: result may be wrapped differently — just check the raw result contains the expected column names
-            assertTrue("Response should contain column_name", resultAsString.contains("column_name"));
-            assertTrue("Response should contain column_data_type", resultAsString.contains("column_data_type"));
-            assertTrue("Response should contain count", resultAsString.contains("count"));
-            assertTrue("Response should contain string_value", resultAsString.contains("string_value"));
-            assertTrue("Response should contain int_value", resultAsString.contains("int_value"));
-            assertTrue("Response should contain float_value", resultAsString.contains("float_value"));
-            assertTrue("Response should contain date_value", resultAsString.contains("date_value"));
-            assertTrue("Response should contain boolean_value", resultAsString.contains("boolean_value"));
+            assertTrue(resultAsString.contains("column_name"), "Response should contain column_name");
+            assertTrue(resultAsString.contains("column_data_type"), "Response should contain column_data_type");
+            assertTrue(resultAsString.contains("count"), "Response should contain count");
+            assertTrue(resultAsString.contains("string_value"), "Response should contain string_value");
+            assertTrue(resultAsString.contains("int_value"), "Response should contain int_value");
+            assertTrue(resultAsString.contains("float_value"), "Response should contain float_value");
+            assertTrue(resultAsString.contains("date_value"), "Response should contain date_value");
+            assertTrue(resultAsString.contains("boolean_value"), "Response should contain boolean_value");
         }
         else
         {
@@ -406,7 +583,7 @@ public class TestDataQualityApi
         JsonNode rows = result.path("result").path("rows");
         if (!rows.isMissingNode() && rows.isArray())
         {
-            assertTrue("At most 2 rows per column when maxNumberOfSampleValues=2", rows.size() <= 2);
+            assertTrue(rows.size() <= 2, "At most 2 rows per column when maxNumberOfSampleValues=2");
         }
     }
 
@@ -429,7 +606,7 @@ public class TestDataQualityApi
         JsonNode rows = result.path("result").path("rows");
         if (!rows.isMissingNode() && rows.isArray())
         {
-            assertTrue("Rows should be <= 20 (default max)", rows.size() <= 20);
+            assertTrue(rows.size() <= 20, "Rows should be <= 20 (default max)");
         }
     }
 
@@ -447,7 +624,7 @@ public class TestDataQualityApi
         assertEquals(200, response.getStatus());
         String resultAsString = response.readEntity(String.class);
         // Verify column_data_type says "String"
-        assertTrue("String column should report data type as String", resultAsString.contains("String"));
+        assertTrue(resultAsString.contains("String"), "String column should report data type as String");
     }
 
     @Test
@@ -464,7 +641,7 @@ public class TestDataQualityApi
         assertEquals(200, response.getStatus());
         String resultAsString = response.readEntity(String.class);
         // Verify column_data_type says "Integer"
-        assertTrue("Integer column should report data type as Integer", resultAsString.contains("Integer"));
+        assertTrue(resultAsString.contains("Integer"), "Integer column should report data type as Integer");
     }
 
     @Test
@@ -486,7 +663,7 @@ public class TestDataQualityApi
         int fullNamePos = resultAsString.indexOf("\"fullName\"");
         if (idPos >= 0 && fullNamePos >= 0)
         {
-            assertTrue("id block should appear before fullName block", idPos < fullNamePos);
+            assertTrue(idPos < fullNamePos, "id block should appear before fullName block");
         }
     }
 
@@ -525,12 +702,12 @@ public class TestDataQualityApi
                 .post(Entity.json(input));
 
         String resultAsString = response.readEntity(String.class);
-        assertEquals(resultAsString, 200, response.getStatus());
+        assertEquals(200, response.getStatus(), resultAsString);
 
         JsonNode result = objectMapper.readTree(resultAsString);
         JsonNode columns = result.path("builder").path("columns");
         JsonNode rows = result.path("result").path("rows");
-        assertTrue(resultAsString, rows.isArray());
+        assertTrue(rows.isArray(), resultAsString);
 
         int nameIndex = -1;
         for (int i = 0; i < columns.size(); i++)
@@ -540,13 +717,13 @@ public class TestDataQualityApi
                 nameIndex = i;
             }
         }
-        assertTrue("FULL_NAME column not found in " + columns, nameIndex >= 0);
+        assertTrue(nameIndex >= 0, "FULL_NAME column not found in " + columns);
 
         Set<String> actual = new LinkedHashSet<>();
         for (JsonNode row : rows)
         {
             actual.add(row.path("values").get(nameIndex).asText());
         }
-        assertEquals(resultAsString, expectedNames, actual);
+        assertEquals(expectedNames, actual, resultAsString);
     }
 }

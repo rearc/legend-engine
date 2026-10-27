@@ -26,6 +26,14 @@
     <packaging>jar</packaging>
     <name>Legend Engine - XT - SQL - E2E Tests</name>
 
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
+        <!-- The root pom's 2.10 cannot read Java 17 class files -->
+        <maven.dependency.plugin.version>3.6.1</maven.dependency.plugin.version>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <!-- Resolve convergence: kotlin-stdlib-jdk8 (okhttp transitive) -->
@@ -59,6 +67,23 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>dependency-analyze</id>
+                        <configuration>
+                            <ignoredUnusedDeclaredDependencies>
+                                <!-- required on the compile classpath (generic signatures / JUnit4 TestRule
+                                     in testcontainers) but not directly imported -->
+                                <dependency>org.antlr:antlr4-runtime</dependency>
+                                <dependency>junit:junit</dependency>
+                            </ignoredUnusedDeclaredDependencies>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <includes>
@@ -85,7 +110,7 @@
                             <goal>copy-resources</goal>
                         </goals>
                         <configuration>
-                            <outputDirectory>${project.build.outputDirectory}/sql-parity</outputDirectory>
+                            <outputDirectory>${project.build.outputDirectory}/sql-docs</outputDirectory>
                             <resources>
                                 <resource>
                                     <directory>${project.build.directory}</directory>
@@ -100,6 +125,25 @@
                                         <include>summary.html</include>
                                         <include>parity-report.json</include>
                                     </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <!-- Copy the generated static parity site (index.html, functions/*.html,
+                         operators/*.html, structural/*.html, test/*.html, and assets/app.css +
+                         assets/app.js) into the JAR as a directory tree, since ParitySiteGenerator
+                         produces many files rather than a fixed flat list. -->
+                    <execution>
+                        <id>copy-site</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/sql-docs/site</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.build.directory}/site</directory>
                                 </resource>
                             </resources>
                         </configuration>
@@ -123,8 +167,11 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
@@ -134,17 +181,15 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>test</scope>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <scope>test</scope>
         </dependency>
         <!-- Markdown to HTML for report generation -->
         <dependency>
@@ -164,7 +209,6 @@
         <dependency>
             <groupId>org.finos.legend.engine</groupId>
             <artifactId>legend-engine-xt-sql-postgres-server</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <!-- Legend SQL HTTP API (SqlExecute, SQLSourceProvider) -->
@@ -181,10 +225,15 @@
         </dependency>
 
         <!-- JUnit 4 (needed for ResourceTestRule) -->
+        <!-- compile scope: testcontainers' GenericContainer implements JUnit4 TestRule -->
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <scope>test</scope>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
         </dependency>
 
         <!-- SQL providers -->
@@ -239,7 +288,6 @@
         <dependency>
             <groupId>org.finos.legend.engine</groupId>
             <artifactId>legend-engine-shared-vault-core</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.finos.legend.engine</groupId>
@@ -309,8 +357,8 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>javax.servlet</groupId>
-                    <artifactId>javax.servlet-api</artifactId>
+                    <groupId>jakarta.servlet</groupId>
+                    <artifactId>jakarta.servlet-api</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>junit</groupId>
@@ -323,19 +371,16 @@
         <dependency>
             <groupId>org.eclipse.collections</groupId>
             <artifactId>eclipse-collections-api</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.eclipse.collections</groupId>
             <artifactId>eclipse-collections</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>joda-time</groupId>
@@ -378,7 +423,6 @@
         <dependency>
             <groupId>org.finos.legend.engine</groupId>
             <artifactId>legend-engine-xt-relationalStore-postgresSql-grammar</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <!-- Compiler -->
@@ -402,12 +446,31 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
+            <groupId>org.finos.legend.pure</groupId>
+            <artifactId>legend-pure-runtime-java-engine-compiled</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.finos.legend.pure</groupId>
+            <artifactId>legend-pure-m3-core</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jersey.test-framework</groupId>
+            <artifactId>jersey-test-framework-core</artifactId>
+            <version>${jersey.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Compile, not test: TestCaseLoader in src/main uses JsonFactory directly. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
         </dependency>
     </dependencies>
 </project>

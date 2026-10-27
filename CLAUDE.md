@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & Run
 
-Toolchain: **JDK 11** (Maven enforcer: `[11.0.10,12)`), **Maven 3.6.2+**. Full clean build is expensive (15–25 min); prefer `-T 4` and `-DskipTests` during iteration.
+Toolchain: **JDK 17** (Maven enforcer: `[17,18)`), **Maven 3.6.2+**. Full clean build is expensive (15–25 min); prefer `-T 4` and `-DskipTests` during iteration.
 
 ```bash
 mvn clean install -DskipTests -pl <module-path>    # directly touched module
@@ -88,6 +88,34 @@ Pure IDE (main: `org.finos.legend.engine.ide.PureIDELight`) — required for ite
 The IDE's delta compiler is drivable over HTTP (`POST /executeGo`), which turns a `.pure` edit-test cycle into seconds instead of a 15–25 min rebuild. **`openFiles` in that payload overwrites the target file on disk**, so every submission must be a delta of the existing version: `GET /fileAsJson/<path>` to read the current content in full, apply the edit to that text, submit the whole result. Never compose the file from scratch — anything you omit is silently deleted, and `welcome.pure` is gitignored so git cannot recover it. See `docs/engineering/guides/pure-ide-delta-compiler-debugging.md`.
 
 IntelliJ gotcha: **disable** `Clear output directory on rebuild` under `Preferences → Build → Compiler`. It wipes generated Pure-runtime resources the server needs to start, producing `ClassNotFoundException` for generated classes.
+
+### Claude Code dev-loop plugin (`pure-dev`)
+
+This repo ships a Claude Code plugin (`.claude-plugin/marketplace.json` + `plugins/pure-dev/`) that
+wraps the Pure LSP into a warm, incrementally-compiling daemon — the same fast edit-test loop as the
+delta compiler above, but driven through skills instead of hand-built HTTP calls against
+`ideLightConfig.json`'s server. **Not installed by default** — enable it once per machine:
+
+```bash
+bash .claude-plugin/install-pure-dev
+```
+
+Then restart the agent. Once installed, prefer these skills over `mvn clean install` or the raw
+`/executeGo` HTTP calls above when iterating on `.pure` code: `pure-lsp-check` (compile-check a file
+in ~1s), `pure-lsp-go`/`pure-lsp-execute`/`pure-lsp-execute-parallel` (run `go()`, a specific
+function, or whole test scopes), `pure-lsp-launch-engine` (the one-command way to start the daemon
+scoped to this repo, backend engine Server included), and `pure-chain-update` (resyncing a local
+legend-pure + legend-engine checkout). Deep internals and operating rules live in
+`plugins/pure-dev/references/lsp-devloop-internals.md` and `lsp-devloop-usage-rules.md`.
+
+### Claude Code review plugin (`engine-review`)
+
+`plugins/engine-review/` reviews a change for impact in the hot areas: SQL generation, protocol JSON,
+and auth/JDBC connectivity. It builds base and head, runs the EMIT corpus on both with
+`legend.emit.snapshot.dir` set (`docs/emit/emit.md` §5.5), and reports how the generated SQL, the
+plans and the PMCD JSON changed. Install it with `bash .claude-plugin/install-engine-review`, then use
+the `review-impact` skill. The first run on a base commit costs one closure build of about 15 min,
+cached under `~/.cache/legend-engine-review`.
 
 ## Tests
 

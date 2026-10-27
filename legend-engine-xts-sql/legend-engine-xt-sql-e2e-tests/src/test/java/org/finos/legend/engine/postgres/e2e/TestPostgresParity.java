@@ -14,7 +14,7 @@
 
 package org.finos.legend.engine.postgres.e2e;
 
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.ResourceExtension;
 import org.eclipse.collections.api.factory.Lists;
 import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.impl.list.mutable.FastList;
@@ -35,6 +35,7 @@ import org.finos.legend.engine.postgres.e2e.coverage.OperatorCoverageMapper;
 import org.finos.legend.engine.postgres.e2e.coverage.OperatorCoverageReport;
 import org.finos.legend.engine.postgres.e2e.coverage.StructuralParityReport;
 import org.finos.legend.engine.postgres.e2e.coverage.SummaryReport;
+import org.finos.legend.engine.postgres.e2e.coverage.site.DocumentationSiteGenerator;
 import org.finos.legend.engine.postgres.protocol.sql.SQLManager;
 import org.finos.legend.engine.postgres.protocol.sql.handler.legend.bridge.sql.LegendExecutionService;
 import org.finos.legend.engine.postgres.protocol.wire.auth.identity.AnonymousIdentityProvider;
@@ -106,7 +107,7 @@ public class TestPostgresParity
     private static Map<String, List<FunctionCatalogExtractor.PgFunction>> functionCatalog;
     private static Map<String, List<OperatorCatalogExtractor.PgOperator>> operatorCatalog;
     private static Set<String> knownTables;
-    private static ResourceTestRule resourceTestRule;
+    private static ResourceExtension resourceTestRule;
     private static Connection legendConnection;
 
     static final String[] TEST_FILES = {
@@ -147,7 +148,7 @@ public class TestPostgresParity
             "parity-tests/format_tokens/to_char_tokens.yaml",
             "parity-tests/format_tokens/extract_fields.yaml",
             "parity-tests/structural/joins.yaml",
-            "parity-tests/structural/unions.yaml",
+            "parity-tests/structural/set_operations.yaml",
             "parity-tests/structural/subqueries.yaml",
             "parity-tests/structural/ctes.yaml",
             "parity-tests/structural/order_limit_offset.yaml",
@@ -186,7 +187,7 @@ public class TestPostgresParity
     };
 
     @BeforeAll
-    static void setUp() throws Exception
+    static void setUp() throws Throwable
     {
         PGSimpleDataSource pgDataSource = new PGSimpleDataSource();
         pgDataSource.setUrl(postgres.getJdbcUrl());
@@ -253,16 +254,16 @@ public class TestPostgresParity
                 FastList.newListWith(sourceProvider),
                 generatorExtensions.flatCollect(PlanGeneratorExtension::getExtraPlanTransformers)
         );
-        resourceTestRule = ResourceTestRule.builder()
+        resourceTestRule = ResourceExtension.builder()
                 .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                 .addResource(sqlExecute)
                 .addResource(new MockPac4jFeature())
                 .addResource(new CatchAllExceptionMapper())
                 .bootstrapLogging(false)
                 .build();
-        // Dropwizard 1.3.x only provides ResourceTestRule (JUnit 4 @Rule).
-        // Since we use JUnit 5, we must reflectively invoke the lifecycle methods.
-        startResourceTestRule(resourceTestRule);
+        // Driven manually rather than by DropwizardExtensionsSupport: the extension's beforeAll
+        // runs before this @BeforeAll, and the builder above needs sqlExecute, which is built here.
+        resourceTestRule.before();
         ServerConfig serverConfig = new ServerConfig();
         serverConfig.setPort(0);
         serverConfig.setHttpPort(0);
@@ -305,10 +306,12 @@ public class TestPostgresParity
         report.writeJsonReport(new File("target/parity-report.json"));
         if (Boolean.getBoolean("parity.updateStatus"))
         {
-            File resourceDir = new File("src/test/resources");
+            // the corpus lives in src/main/resources so the interpreted dev-loop harness can
+            // depend on it; see this module's README
+            File resourceDir = new File("src/main/resources");
             if (!resourceDir.isDirectory())
             {
-                resourceDir = new File("legend-engine-xts-sql/legend-engine-xt-sql-e2e-tests/src/test/resources");
+                resourceDir = new File("legend-engine-xts-sql/legend-engine-xt-sql-e2e-tests/src/main/resources");
             }
             statusUpdater.updateFiles(resourceDir, TEST_FILES);
         }
@@ -328,7 +331,17 @@ public class TestPostgresParity
         {
             legendServer.shutDown();
         }
-        stopResourceTestRule(resourceTestRule);
+        if (resourceTestRule != null)
+        {
+            try
+            {
+                resourceTestRule.after();
+            }
+            catch (Throwable e)
+            {
+                LOGGER.debug("Error stopping ResourceExtension", e);
+            }
+        }
         if (Boolean.getBoolean("parity.failOnError") && report.hasFailures())
         {
             throw new AssertionError("Parity tests have failures. See target/parity-report.json for details.");
@@ -632,9 +645,9 @@ public class TestPostgresParity
     {
         try
         {
-            javax.ws.rs.core.Response response = resourceTestRule.target("sql/v1/execution/lambda")
+            jakarta.ws.rs.core.Response response = resourceTestRule.target("sql/v1/execution/lambda")
                     .request()
-                    .post(javax.ws.rs.client.Entity.text(legendSql));
+                    .post(jakarta.ws.rs.client.Entity.text(legendSql));
 
             if (response.getStatus() != 200)
             {
@@ -658,9 +671,9 @@ public class TestPostgresParity
     {
         try
         {
-            javax.ws.rs.core.Response response = resourceTestRule.target("sql/v1/execution/plan")
+            jakarta.ws.rs.core.Response response = resourceTestRule.target("sql/v1/execution/plan")
                     .request()
-                    .post(javax.ws.rs.client.Entity.text(legendSql));
+                    .post(jakarta.ws.rs.client.Entity.text(legendSql));
             if (response.getStatus() != 200)
             {
                 return null;
@@ -726,37 +739,6 @@ public class TestPostgresParity
         Vault.INSTANCE.registerImplementation(new PropertiesVaultImplementation(vaultProps));
     }
 
-    /**
-     * Starts a Dropwizard 1.3.x ResourceTestRule in a JUnit 5 context.
-     * ResourceTestRule is a JUnit 4 @Rule; its lifecycle must be driven reflectively.
-     */
-    private static void startResourceTestRule(ResourceTestRule rule) throws Exception
-    {
-        java.lang.reflect.Field resourceField = ResourceTestRule.class.getDeclaredField("resource");
-        resourceField.setAccessible(true);
-        Object resource = resourceField.get(rule);
-        resource.getClass().getMethod("before").invoke(resource);
-    }
-
-    private static void stopResourceTestRule(ResourceTestRule rule)
-    {
-        if (rule == null)
-        {
-            return;
-        }
-        try
-        {
-            java.lang.reflect.Field resourceField = ResourceTestRule.class.getDeclaredField("resource");
-            resourceField.setAccessible(true);
-            Object resource = resourceField.get(rule);
-            resource.getClass().getMethod("after").invoke(resource);
-        }
-        catch (Exception e)
-        {
-            LOGGER.debug("Error stopping ResourceTestRule", e);
-        }
-    }
-
     private static void generateFunctionCoverageReport()
     {
         try
@@ -808,10 +790,61 @@ public class TestPostgresParity
 
             // Generate HTML versions of the markdown reports
             new HtmlReportGenerator().generateAll("target");
+
+            // Unified static parity site (docs/parity-site-plan.md). Best-effort: a failure
+            // here must not fail the whole test run, since the site is a convenience view
+            // over data already captured by the reports above.
+            try
+            {
+                new DocumentationSiteGenerator().generate(
+                        functionCatalog,
+                        operatorCatalog,
+                        allTestCases,
+                        new File("target/parity-report.json"),
+                        report.getResults(),
+                        legendRevision(),
+                        "target/site");
+            }
+            catch (Exception e)
+            {
+                LOGGER.error("Failed to generate parity site", e);
+            }
         }
         catch (Exception e)
         {
             LOGGER.error("Failed to generate coverage reports", e);
         }
+    }
+
+    /**
+     * Resolves the Legend revision label for the site header: the Maven CI-friendly
+     * {@code revision} property when running under Maven, falling back to the short git
+     * SHA (plan &sect;11 decision 2).
+     */
+    private static String legendRevision()
+    {
+        String mavenRevision = System.getProperty("revision");
+        if (mavenRevision != null && !mavenRevision.isEmpty())
+        {
+            return mavenRevision;
+        }
+        try
+        {
+            Process p = new ProcessBuilder("git", "rev-parse", "--short", "HEAD").start();
+            try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream())))
+            {
+                String sha = r.readLine();
+                p.waitFor();
+                if (sha != null && !sha.isEmpty())
+                {
+                    return sha.trim();
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            LOGGER.debug("Could not resolve git revision", e);
+        }
+        return "unknown";
     }
 }

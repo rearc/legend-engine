@@ -24,6 +24,8 @@ import meta::pure::precisePrimitives::*;
 import meta::external::dataquality::tests::domain::*;
 import meta::pure::metamodel::relation::*;
 import meta::external::query::sql::transformation::compile::utils::*;
+import meta::pure::functions::math::olap::*;
+import meta::pure::tds::extensions::*;
 
 function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_dynamicHash():Boolean[1]
 {
@@ -509,7 +511,7 @@ function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_
 
   let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
   let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
-  let actual = getDataReconLambda(^DataQualityReconInput(source = $source, target = $target, keys = 'ID', colsForHash = ['FIRSTNAME', 'LASTNAME'], targetHashCol = 'HASH', includeColumnValues = true, enrichDQColumns = true), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)});
+  let actual = getDataReconLambda(^DataQualityReconInput(source = $source, target = $target, keys = 'ID', colsForHash = ['FIRSTNAME', 'LASTNAME'], targetHashCol = 'HASH', includeColumnValues = true, enrichDQColumns = true), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)}, meta::relational::extension::relationalExtensions());
   assertLambdaEquals($expected, $actual, false);
 }
 
@@ -541,7 +543,7 @@ function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_
 
   let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
   let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
-  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, 'FIRSTNAME', [], [], false, 'AGE'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)});
+  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, 'FIRSTNAME', [], [], false, 'AGE'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)}, meta::relational::extension::relationalExtensions());
   assertLambdaEquals($expected, $actual, false);
 }
 
@@ -569,7 +571,7 @@ function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_
 
   let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
   let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
-  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, [], 'HASH', 'HASH', false, 'AGE'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)});
+  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, [], 'HASH', 'HASH', false, 'AGE'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)}, meta::relational::extension::relationalExtensions());
   assertLambdaEquals($expected, $actual, false);
 }
 
@@ -599,7 +601,7 @@ function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_
 
   let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
   let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
-  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, ['FIRSTNAME', 'LASTNAME'], [], [], true, 'AGE'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)});
+  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, ['FIRSTNAME', 'LASTNAME'], [], [], true, 'AGE'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)}, meta::relational::extension::relationalExtensions());
   assertLambdaEquals($expected, $actual, false);
 }
 
@@ -632,7 +634,7 @@ function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_
 
   let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
   let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->select(~[ID,FIRSTNAME])->from($runtime)};
-  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, 'FIRSTNAME', [], [], false, 'ADDRESSID'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)});
+  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, 'FIRSTNAME', [], [], false, 'ADDRESSID'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)}, meta::relational::extension::relationalExtensions());
   assertLambdaEquals($expected, $actual, false);
 }
 
@@ -667,7 +669,7 @@ function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_
 
   let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->select(~[ID,FIRSTNAME,LASTNAME,AGE])->from($runtime)};
   let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->select(~[ID,FIRSTNAME,LASTNAME,AGE])->from($runtime)};
-  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, [], [], [], false, 'AGE'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)});
+  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, [], [], [], false, 'AGE'), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)}, meta::relational::extension::relationalExtensions());
   assertLambdaEquals($expected, $actual, false);
 }
 
@@ -711,8 +713,436 @@ function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_
 
   let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->extend(~HASH_S: row | $row.HASH)->from($runtime)};
   let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->extend(~HASH_S: row | $row.HASH)->from($runtime)};
-  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, ['HASH', 'HASH_S'], [], [], false), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)});
+  let actual = getDataReconLambda(createReconInput($source, $target, 'ID', false, ['HASH', 'HASH_S'], [], [], false), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)}, meta::relational::extension::relationalExtensions());
   assertLambdaEquals($expected, $actual, false);
+}
+
+// A TDS source whose schema can only be resolved with store extensions registered - tds::join has
+// no core handler, it is contributed by the relational extension. Regression guard for
+// buildCastToRelation passing an empty extensions list, which made this fail with an opaque
+// "Match failure: []" deep inside tdsSchema.pure.
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_tdsJoinSourceNeedsExtensions():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let mapping = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::dataqualitymappings')->toOne()->cast(@Mapping);
+
+  let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->select(~[ID, HASH])->from($runtime)};
+  let target = {| Person.all()->project([ x|$x.id, x|$x.hash ],[ 'ID', 'HASH' ])
+                    ->join(Person.all()->project([ x|$x.id, x|$x.age ],[ 'ID', 'AGE' ]), meta::relational::metamodel::join::JoinType.INNER, 'ID')
+                    ->from($mapping, $runtime)};
+
+  let actual = getDataReconLambda(
+    createReconInput($source, $target, 'ID', false, [], 'HASH', 'HASH', false, [], false, false),
+    {l:LambdaFunction<Any>[1] | compileViaGrammar($l)},
+    meta::relational::extension::relationalExtensions()
+  );
+
+  let relType = $actual.expressionSequence->last()->evaluateAndDeactivate().genericType.typeArguments.rawType->toOne()->cast(@RelationType<Any>);
+  assertEquals(['HASH_SOURCE', 'HASH_TARGET', 'ID_SOURCE', 'ID_TARGET'], $relType.columns.name);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_tdsRowAndOlapOperatorsChain():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let mapping = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::dataqualitymappings')->toOne()->cast(@Mapping);
+
+  let source = {| Person.all()->project([x|$x.id, x|$x.name, x|$x.age], ['ID', 'FULL_NAME', 'AGE_SUM'])->from($mapping, $runtime)};
+  let target = {| Person.all()->project([x|$x.id, x|$x.name, x|$x.age], ['ID', 'FULL_NAME', 'AGE'])
+                    ->olapGroupBy(['FULL_NAME'], func('AGE', y|$y->sum()), 'AGE_SUM')
+                    ->olapGroupBy(asc('AGE'), y|$y->rank(), 'AGE_RANK')
+                    ->restrictDistinct(['ID', 'FULL_NAME', 'AGE_SUM'])
+                    ->limit(10->first())
+                    ->paginated(1, 10)
+                    ->from($mapping, $runtime)};
+
+  assertReconOutputColumns($source, $target, 'ID', ['FULL_NAME', 'AGE_SUM'],
+    ['DIGEST_SOURCE', 'DIGEST_TARGET', 'ID_SOURCE', 'ID_TARGET', 'FULL_NAME_SOURCE', 'FULL_NAME_TARGET', 'AGE_SUM_SOURCE', 'AGE_SUM_TARGET']);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_tdsProjectionVariantsChain():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let mapping = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::dataqualitymappings')->toOne()->cast(@Mapping);
+
+  let source = {| Person.all()->project([x|$x.id, x|$x.name], ['ID', 'NAME'])->from($mapping, $runtime)};
+  let target = {| Person.all()->project([x|$x.id, x|$x.name], ['ID', 'NAME'])
+                    ->concatenate(Person.all()->projectWithColumnSubset([x|$x.id, x|$x.name, x|$x.age], ['ID', 'NAME', 'AGE'], ['ID', 'NAME']))
+                    ->concatenate(Person.all()->groupByWithWindowSubset([x|$x.id, x|$x.name], [agg(x|$x.age, y|$y->sum())], ['ID', 'NAME', 'AGE_SUM'], ['ID', 'NAME'], []))
+                    ->sort(['NAME'])
+                    ->from($mapping, $runtime)};
+
+  assertReconOutputColumns($source, $target, 'ID', ['NAME'],
+    ['DIGEST_SOURCE', 'DIGEST_TARGET', 'ID_SOURCE', 'ID_TARGET', 'NAME_SOURCE', 'NAME_TARGET']);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_tdsAnalyticsExtensionsChain():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let mapping = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::dataqualitymappings')->toOne()->cast(@Mapping);
+
+  let source = {| Person.all()->project([x|$x.id, x|'inlier', x|true], ['ID', 'AGE_CLASS', 'row_matched'])->from($mapping, $runtime)};
+  let target = {| Person.all()->project([x|$x.id, x|$x.age], ['ID', 'AGE'])
+                    ->rowValueDifference(Person.all()->project([x|$x.id, x|$x.age], ['ID', 'AGE']), ['ID'], ['AGE'])
+                    ->zScore([], ['AGE_1'], ['AGE_ZSCORE'])
+                    ->iqrClassify([], ['AGE_1'], ['AGE_CLASS'])
+                    ->from($mapping, $runtime)};
+
+  assertReconOutputColumns($source, $target, 'ID', ['AGE_CLASS', 'row_matched'],
+    ['DIGEST_SOURCE', 'DIGEST_TARGET', 'ID_SOURCE', 'ID_TARGET', 'AGE_CLASS_SOURCE', 'AGE_CLASS_TARGET', 'row_matched_SOURCE', 'row_matched_TARGET']);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_tdsUserDefinedFunction():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let mapping = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::dataqualitymappings')->toOne()->cast(@Mapping);
+
+  let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->select(~[ID, HASH])->from($runtime)};
+  let target = {| meta::external::dataquality::tests::udf::personIdHashTds()->from($mapping, $runtime)};
+
+  assertReconOutputColumns($source, $target, 'ID', ['HASH'],
+    ['DIGEST_SOURCE', 'DIGEST_TARGET', 'ID_SOURCE', 'ID_TARGET', 'HASH_SOURCE', 'HASH_TARGET']);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_relationUserDefinedFunction():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+
+  let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->select(~[ID, HASH])->from($runtime)};
+  let target = {| meta::external::dataquality::tests::udf::personIdHashRelation()->from($runtime)};
+
+  assertReconOutputColumns($source, $target, 'ID', ['HASH'],
+    ['DIGEST_SOURCE', 'DIGEST_TARGET', 'ID_SOURCE', 'ID_TARGET', 'HASH_SOURCE', 'HASH_TARGET']);
+}
+
+function meta::external::dataquality::tests::assertReconOutputColumns(source: LambdaFunction<Any>[1], target: LambdaFunction<Any>[1], keys: String[*], colsForHash: String[*], expectedColumns: String[*]):Boolean[1]
+{
+  let actual = getDataReconLambda(
+    createReconInput($source, $target, $keys, false, $colsForHash, [], [], true, [], false, false),
+    {l:LambdaFunction<Any>[1] | compileViaGrammar($l)},
+    meta::relational::extension::relationalExtensions()
+  );
+  let relType = $actual.expressionSequence->last()->evaluateAndDeactivate().genericType.typeArguments.rawType->toOne()->cast(@RelationType<Any>);
+  assertEquals($expectedColumns, $relType.columns.name);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_multiStatement_scalarLetSourceOnly():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {| let excludedName = 'John';
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME != $excludedName)->from($runtime);};
+  let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
+  let lambda = {| {| let excludedName = 'John';
+                     #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME != $excludedName);}->eval()
+    ->select(~[ID,FIRSTNAME,LASTNAME])
+    ->extend(~[ID_SOURCE: row | $row.ID, FIRSTNAME_SOURCE: row | $row.FIRSTNAME, LASTNAME_SOURCE: row | $row.LASTNAME])
+    ->select(~[ID_SOURCE,FIRSTNAME_SOURCE,LASTNAME_SOURCE])
+    ->extend(~DIGEST_SOURCE: row | hash(if($row.FIRSTNAME_SOURCE->isEmpty(), | '', |'' + 'FIRSTNAME' + '' + $row.FIRSTNAME_SOURCE->toOne()->toString()) + if($row.ID_SOURCE->isEmpty(), | '', |'' + 'ID' + '' + $row.ID_SOURCE->toOne()->toString()) + if($row.LASTNAME_SOURCE->isEmpty(), | '', |'' + 'LASTNAME' + '' + $row.LASTNAME_SOURCE->toOne()->toString()), HashType.MD5))
+    ->select(~[ID_SOURCE,DIGEST_SOURCE])
+    ->from($runtime)
+    ->join(
+        #>{meta::external::dataquality::tests::domain::db.personTable}#
+          ->select(~[ID,FIRSTNAME,LASTNAME])
+          ->extend(~[ID_TARGET: row | $row.ID, FIRSTNAME_TARGET: row | $row.FIRSTNAME, LASTNAME_TARGET: row | $row.LASTNAME])
+          ->select(~[ID_TARGET,FIRSTNAME_TARGET,LASTNAME_TARGET])
+          ->extend(~DIGEST_TARGET: row | hash(if($row.FIRSTNAME_TARGET->isEmpty(), | '', |'' + 'FIRSTNAME' + '' + $row.FIRSTNAME_TARGET->toOne()->toString()) + if($row.ID_TARGET->isEmpty(), | '', |'' + 'ID' + '' + $row.ID_TARGET->toOne()->toString()) + if($row.LASTNAME_TARGET->isEmpty(), | '', |'' + 'LASTNAME' + '' + $row.LASTNAME_TARGET->toOne()->toString()), HashType.MD5))
+          ->select(~[ID_TARGET,DIGEST_TARGET])
+          ->from($runtime),
+        JoinKind.FULL,
+        {x,y| $x.ID_SOURCE == $y.ID_TARGET}
+    )->filter(row | not($row.DIGEST_SOURCE == $row.DIGEST_TARGET))
+    ->select(~[DIGEST_SOURCE,DIGEST_TARGET,ID_SOURCE,ID_TARGET])
+  };
+
+  testRecon($lambda, $source, $target, 'ID', false, ['FIRSTNAME', 'LASTNAME'], [], [], false);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_multiStatement_relationValuedLetsOnBothSides():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {| let johns = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == 'John');
+                  $johns->from($runtime);};
+  let target = {| let notDoes = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.LASTNAME != 'Doe');
+                  $notDoes->from($runtime);};
+  let lambda = {| {| let johns = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == 'John');
+                     $johns;}->eval()
+    ->select(~[ID,FIRSTNAME,LASTNAME])
+    ->extend(~[ID_SOURCE: row | $row.ID, FIRSTNAME_SOURCE: row | $row.FIRSTNAME, LASTNAME_SOURCE: row | $row.LASTNAME])
+    ->select(~[ID_SOURCE,FIRSTNAME_SOURCE,LASTNAME_SOURCE])
+    ->extend(~DIGEST_SOURCE: row | hash(if($row.FIRSTNAME_SOURCE->isEmpty(), | '', |'' + 'FIRSTNAME' + '' + $row.FIRSTNAME_SOURCE->toOne()->toString()) + if($row.ID_SOURCE->isEmpty(), | '', |'' + 'ID' + '' + $row.ID_SOURCE->toOne()->toString()) + if($row.LASTNAME_SOURCE->isEmpty(), | '', |'' + 'LASTNAME' + '' + $row.LASTNAME_SOURCE->toOne()->toString()), HashType.MD5))
+    ->select(~[ID_SOURCE,DIGEST_SOURCE])
+    ->from($runtime)
+    ->join(
+        {| let notDoes = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.LASTNAME != 'Doe');
+           $notDoes;}->eval()
+          ->select(~[ID,FIRSTNAME,LASTNAME])
+          ->extend(~[ID_TARGET: row | $row.ID, FIRSTNAME_TARGET: row | $row.FIRSTNAME, LASTNAME_TARGET: row | $row.LASTNAME])
+          ->select(~[ID_TARGET,FIRSTNAME_TARGET,LASTNAME_TARGET])
+          ->extend(~DIGEST_TARGET: row | hash(if($row.FIRSTNAME_TARGET->isEmpty(), | '', |'' + 'FIRSTNAME' + '' + $row.FIRSTNAME_TARGET->toOne()->toString()) + if($row.ID_TARGET->isEmpty(), | '', |'' + 'ID' + '' + $row.ID_TARGET->toOne()->toString()) + if($row.LASTNAME_TARGET->isEmpty(), | '', |'' + 'LASTNAME' + '' + $row.LASTNAME_TARGET->toOne()->toString()), HashType.MD5))
+          ->select(~[ID_TARGET,DIGEST_TARGET])
+          ->from($runtime),
+        JoinKind.FULL,
+        {x,y| $x.ID_SOURCE == $y.ID_TARGET}
+    )->filter(row | not($row.DIGEST_SOURCE == $row.DIGEST_TARGET))
+    ->select(~[DIGEST_SOURCE,DIGEST_TARGET,ID_SOURCE,ID_TARGET])
+  };
+
+  testRecon($lambda, $source, $target, 'ID', false, ['FIRSTNAME', 'LASTNAME'], [], [], false);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_multiStatement_letReferencingParameter():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {firstName:String[1] | let wanted = $firstName;
+                                      #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $wanted)->from($runtime);};
+  let target = {firstName:String[1] | #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $firstName)->from($runtime)};
+  let lambda = {source_firstName:String[1],target_firstName:String[1] | {| let wanted = $source_firstName;
+                                                                          #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $wanted);}->eval()
+    ->select(~[ID,HASH])
+    ->extend(~[ID_SOURCE: row | $row.ID, HASH_SOURCE: row | $row.HASH])
+    ->select(~[ID_SOURCE,HASH_SOURCE])
+    ->from($runtime)
+    ->join(
+        #>{meta::external::dataquality::tests::domain::db.personTable}#
+          ->filter(row | $row.FIRSTNAME == $target_firstName)
+          ->select(~[ID,HASH])
+          ->extend(~[ID_TARGET: row | $row.ID, HASH_TARGET: row | $row.HASH])
+          ->select(~[ID_TARGET,HASH_TARGET])
+          ->from($runtime),
+        JoinKind.FULL,
+        {x,y| $x.ID_SOURCE == $y.ID_TARGET}
+    )->filter(row | not($row.HASH_SOURCE == $row.HASH_TARGET))
+    ->select(~[HASH_SOURCE,HASH_TARGET,ID_SOURCE,ID_TARGET])
+  };
+
+  testRecon($lambda, $source, $target, 'ID', false, [], 'HASH', 'HASH', false);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_multiStatement_aggregatedHash():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {| let minAge = 18;
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.AGE->toOne() >= $minAge)->from($runtime);};
+  let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
+  let lambda = {| {| let minAge = 18;
+                     #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.AGE->toOne() >= $minAge);}->eval()
+    ->select(~[FIRMID,HASH])
+    ->extend(~[FIRMID_SOURCE: row | $row.FIRMID, HASH_SOURCE: row | $row.HASH])
+    ->select(~[FIRMID_SOURCE,HASH_SOURCE])
+    ->sort(~HASH_SOURCE->ascending())
+    ->groupBy(~[FIRMID_SOURCE], ~AGG_HASH : x | $x.HASH_SOURCE : y | $y->joinStrings(''))
+    ->extend(~DIGEST_SOURCE: row | hash(if($row.AGG_HASH->isEmpty(), | '', |$row.AGG_HASH->toOne()->toString()) + if($row.FIRMID_SOURCE->isEmpty(), | '', |$row.FIRMID_SOURCE->toOne()->toString()), HashType.MD5))
+    ->select(~[FIRMID_SOURCE,DIGEST_SOURCE])
+    ->from($runtime)
+    ->join(
+        #>{meta::external::dataquality::tests::domain::db.personTable}#
+          ->select(~[FIRMID,HASH])
+          ->extend(~[FIRMID_TARGET: row | $row.FIRMID, HASH_TARGET: row | $row.HASH])
+          ->select(~[FIRMID_TARGET,HASH_TARGET])
+          ->sort(~HASH_TARGET->ascending())
+          ->groupBy(~[FIRMID_TARGET], ~AGG_HASH : x | $x.HASH_TARGET : y | $y->joinStrings(''))
+          ->extend(~DIGEST_TARGET: row | hash(if($row.AGG_HASH->isEmpty(), | '', |$row.AGG_HASH->toOne()->toString()) + if($row.FIRMID_TARGET->isEmpty(), | '', |$row.FIRMID_TARGET->toOne()->toString()), HashType.MD5))
+          ->select(~[FIRMID_TARGET,DIGEST_TARGET])
+          ->from($runtime),
+        JoinKind.FULL,
+        {x,y| $x.FIRMID_SOURCE == $y.FIRMID_TARGET}
+    )->filter(row | not($row.DIGEST_SOURCE == $row.DIGEST_TARGET))
+    ->select(~[DIGEST_SOURCE,DIGEST_TARGET,FIRMID_SOURCE,FIRMID_TARGET])
+  };
+
+  testRecon($lambda, $source, $target, 'FIRMID', true, 'FIRMID', 'HASH', 'HASH', false);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_multiStatement_removesFrom():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let expected = {| {| let excludedName = 'John';
+                       #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME != $excludedName);}->eval()
+    ->select(~[ID,HASH])
+    ->extend(~[ID_SOURCE: row | $row.ID, HASH_SOURCE: row | $row.HASH])
+    ->select(~[ID_SOURCE,HASH_SOURCE])
+    ->join(
+        #>{meta::external::dataquality::tests::domain::db.personTable}#
+          ->select(~[ID,HASH])
+          ->extend(~[ID_TARGET: row | $row.ID, HASH_TARGET: row | $row.HASH])
+          ->select(~[ID_TARGET,HASH_TARGET]),
+        JoinKind.FULL,
+        {x,y| $x.ID_SOURCE == $y.ID_TARGET}
+    )->filter(row | not($row.HASH_SOURCE == $row.HASH_TARGET))
+    ->select(~[HASH_SOURCE,HASH_TARGET,ID_SOURCE,ID_TARGET])
+  };
+
+  let source = {| let excludedName = 'John';
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME != $excludedName)->from($runtime);};
+  let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#};
+  testRecon($expected, $source, $target, 'ID', false, [], 'HASH', 'HASH', false, [], true);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testLambdaGeneration_dataRecon_multiStatement_withTabularDataSet():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let mapping = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::dataqualitymappings')->toOne()->cast(@Mapping);
+  let expected = {| #>{meta::external::dataquality::tests::domain::db.personTable}#
+    ->select(~[ID,HASH])
+    ->extend(~[ID_SOURCE: row | $row.ID, HASH_SOURCE: row | $row.HASH])
+    ->select(~[ID_SOURCE,HASH_SOURCE])
+    ->from($runtime)
+    ->join(
+        {| let minAge = 18;
+           Person.all()->filter(x | $x.age >= $minAge)->project([ x|$x.id, x|$x.hash ],[ 'ID', 'HASH'])->cast(@Relation<(ID: String[1], HASH: String[1])>);}->eval()
+          ->select(~[ID,HASH])
+          ->extend(~[ID_TARGET: row | $row.ID, HASH_TARGET: row | $row.HASH])
+          ->select(~[ID_TARGET,HASH_TARGET])
+          ->from($mapping, $runtime),
+        JoinKind.FULL,
+        {x,y| $x.ID_SOURCE == $y.ID_TARGET}
+    )->filter(row | not($row.HASH_SOURCE == $row.HASH_TARGET))
+    ->select(~[HASH_SOURCE,HASH_TARGET,ID_SOURCE,ID_TARGET])
+  };
+
+  let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
+  let target = {| let minAge = 18;
+                  Person.all()->filter(x | $x.age >= $minAge)->project([ x|$x.id, x|$x.hash ],[ 'ID', 'HASH'])->from($mapping, $runtime);};
+  testRecon($expected, $source, $target, 'ID', false, [], 'HASH', 'HASH', false, [], false);
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testDataRecon_generationFailsWithQueryViolation():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime)};
+  let target = {| let people = #>{meta::external::dataquality::tests::domain::db.personTable}#->from($runtime);
+                  $people;};
+  assertError(|getDataReconLambda(createReconInput($source, $target, 'ID', false, [], 'HASH', 'HASH', false), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)}),
+    'The \'from\' function is not supported inside let \'people\' of the target query; apply \'from\' to the final expression only');
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_singleStatementQueriesHaveNoViolations():Boolean[1]
+{
+  let query = {| #>{meta::external::dataquality::tests::domain::db.personTable}#};
+  assertEmpty(validateReconQueries($query, $query));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_allowsSameScalarLetNameOnBothSides():Boolean[1]
+{
+  let source = {| let name = 'John';
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $name);};
+  let target = {| let name = 'Jane';
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == $name);};
+  assertEmpty(validateReconQueries($source, $target));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_allowsDistinctRelationLetNames():Boolean[1]
+{
+  let source = {| let johns = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == 'John');
+                  $johns;};
+  let target = {| let janes = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == 'Jane');
+                  $janes;};
+  assertEmpty(validateReconQueries($source, $target));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_rejectsNonLetStatementBeforeFinalExpression():Boolean[1]
+{
+  let source = {| let prefix = 'Mr ';
+                  'unused'->toUpper();
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#;};
+  let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#};
+  assertEquals(['source[1]: Only let statements are supported before the final expression of a multi-statement source query'], describeViolations(validateReconQueries($source, $target)));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_rejectsFromInsideLet():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {| #>{meta::external::dataquality::tests::domain::db.personTable}#};
+  let target = {| let people = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.FIRSTNAME == 'Jane')->from($runtime);
+                  $people;};
+  assertEquals(['target[0]: The \'from\' function is not supported inside let \'people\' of the target query; apply \'from\' to the final expression only'], describeViolations(validateReconQueries($source, $target)));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_rejectsLetNamedLikeParameter():Boolean[1]
+{
+  //built by renaming the let rather than written literally, so the rule is exercised however the Pure compiler treats a let that shadows a parameter
+  let source = {minId:Integer[1] | let threshold = $minId;
+                                   #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID > $threshold);}->renameFirstLet('minId');
+  let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#};
+  assertEquals(['source[0]: Let variable \'minId\' of the source query clashes with parameter \'minId\'; use a distinct name'], describeViolations(validateReconQueries($source, $target)));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_rejectsLetNamedLikeRenamedParameter():Boolean[1]
+{
+  let source = {minId:Integer[1] | let source_minId = 5;
+                                   #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID > $minId);};
+  let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#};
+  assertEquals(['source[0]: Let variable \'source_minId\' of the source query clashes with parameter \'minId\'; use a distinct name'], describeViolations(validateReconQueries($source, $target)));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_rejectsLetUsedInFinalFromArguments():Boolean[1]
+{
+  let runtime = loadModel([])->filter(p | $p->elementToPath() == 'meta::external::dataquality::tests::domain::DataQualityRuntime')->toOne()->cast(@PackageableRuntime);
+  let source = {| let rt = $runtime;
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#->from($rt->toOne());};
+  let target = {| #>{meta::external::dataquality::tests::domain::db.personTable}#};
+  assertEquals(['source[1]: The \'from\' function of the source query must not use let variable(s) [rt]; pass the mapping and runtime directly'], describeViolations(validateReconQueries($source, $target)));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_rejectsRelationLetNamesSharedAcrossSides():Boolean[1]
+{
+  let source = {| let t1 = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID > 1);
+                  let t2 = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID > 2);
+                  $t1;};
+  let target = {| let unshared = #>{meta::external::dataquality::tests::domain::db.personTable}#;
+                  let t1 = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID > 3);
+                  let t2 = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID > 4);
+                  $unshared;};
+  assertEquals(['target[1]: Let variable \'t1\' is declared in both source and target queries (names compared case-insensitively) and would become common table expressions with clashing names; use distinct names on each side', 'target[2]: Let variable \'t2\' is declared in both source and target queries (names compared case-insensitively) and would become common table expressions with clashing names; use distinct names on each side'], describeViolations(validateReconQueries($source, $target)));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_rejectsLetNamesSharedAcrossSidesIgnoringCase():Boolean[1]
+{
+  let source = {| let People = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID > 1);
+                  $People;};
+  let target = {| let people = #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID > 2);
+                  $people;};
+  assertEquals(['target[0]: Let variable \'people\' is declared in both source and target queries (names compared case-insensitively) and would become common table expressions with clashing names; use distinct names on each side'], describeViolations(validateReconQueries($source, $target)));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_rejectsNonConstantScalarLetNamesSharedAcrossSides():Boolean[1]
+{
+  let source = {| let maxId = #>{meta::external::dataquality::tests::domain::db.personTable}#->size();
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID < $maxId);};
+  let target = {| let maxId = #>{meta::external::dataquality::tests::domain::db.personTable}#->size();
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID < $maxId);};
+  assertEquals(['target[0]: Let variable \'maxId\' is declared in both source and target queries (names compared case-insensitively) and would become common table expressions with clashing names; use distinct names on each side'], describeViolations(validateReconQueries($source, $target)));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_rejectsParameterDerivedScalarLetNamesSharedAcrossSides():Boolean[1]
+{
+  let source = {minId:Integer[1] | let threshold = $minId + 1;
+                                   #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID > $threshold);};
+  let target = {maxId:Integer[1] | let threshold = $maxId - 1;
+                                   #>{meta::external::dataquality::tests::domain::db.personTable}#->filter(row | $row.ID < $threshold);};
+  assertEquals(['target[0]: Let variable \'threshold\' is declared in both source and target queries (names compared case-insensitively) and would become common table expressions with clashing names; use distinct names on each side'], describeViolations(validateReconQueries($source, $target)));
+}
+
+function <<test.Test>> meta::external::dataquality::tests::testValidateReconQueries_reportsSourceViolationsBeforeTargetViolations():Boolean[1]
+{
+  let source = {| let prefix = 'Mr ';
+                  'unused'->toUpper();
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#;};
+  let target = {| 'unused'->toUpper();
+                  #>{meta::external::dataquality::tests::domain::db.personTable}#;};
+  assertEquals(['source', 'target'], validateReconQueries($source, $target).side);
+}
+
+function meta::external::dataquality::tests::describeViolations(violations: DataQualityReconQueryViolation[*]): String[*]
+{
+  $violations->map(v | $v.side + '[' + $v.statementIndex->toString() + ']: ' + $v.message)
+}
+
+function meta::external::dataquality::tests::renameFirstLet(query: LambdaFunction<Any>[1], newName: String[1]): LambdaFunction<Any>[1]
+{
+  let statements = $query.expressionSequence->evaluateAndDeactivate();
+  let letStatement = $statements->at(0)->cast(@SimpleFunctionExpression);
+  let renamedLet = ^$letStatement(parametersValues = ^InstanceValue(values = $newName, genericType = ^GenericType(rawType = String), multiplicity = PureOne)->concatenate($letStatement.parametersValues->evaluateAndDeactivate()->tail()));
+  ^$query(expressionSequence = $renamedLet->concatenate($statements->tail())->toOneMany());
 }
 
 function meta::external::dataquality::tests::testRecon(expected:FunctionDefinition<Any>[1], runtime: PackageableRuntime[1], keys: String[*], aggregatedHash: Boolean[1], colsForHash: String[*], sourceHashCol: String[0..1], targetHashCol: String[0..1], includeColumnValues: Boolean[1]):Boolean[1]
@@ -734,6 +1164,6 @@ function meta::external::dataquality::tests::testRecon(expected:FunctionDefiniti
 
 function meta::external::dataquality::tests::testRecon(expected:FunctionDefinition<Any>[1], source: LambdaFunction<Any>[1], target: LambdaFunction<Any>[1], keys: String[*], aggregatedHash: Boolean[1], colsForHash: String[*], sourceHashCol: String[0..1], targetHashCol: String[0..1], includeColumnValues: Boolean[1], defectLimit: Integer[0..1], removeFrom: Boolean[1]):Boolean[1]
 {
-  let actual = getDataReconLambda(createReconInput($source, $target, $keys, $aggregatedHash, $colsForHash, $sourceHashCol, $targetHashCol, $includeColumnValues, $defectLimit, $removeFrom, false), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)});
+  let actual = getDataReconLambda(createReconInput($source, $target, $keys, $aggregatedHash, $colsForHash, $sourceHashCol, $targetHashCol, $includeColumnValues, $defectLimit, $removeFrom, false), {l:LambdaFunction<Any>[1] | compileViaGrammar($l)}, meta::relational::extension::relationalExtensions());
   assertLambdaEquals($expected, $actual, false);
 }
