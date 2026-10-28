@@ -569,7 +569,9 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
                    | fail($func->domainViolationErrorMessageForDatabricks()); ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = ''));,
                    | if($func->isRemByZeroForDatabricks(),
                         | fail($func->remByZeroErrorMessageForDatabricks()); ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = ''));,
-                        | if($func->isLiteralDateToStringForDatabricks(),
+                        | if($func->literalRaisingErrorMessageForDatabricks()->isNotEmpty(),
+                             | fail($func->literalRaisingErrorMessageForDatabricks()->toOne()); ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = ''));,
+                             | if($func->isLiteralDateToStringForDatabricks(),
     | ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = $func->renderLiteralDateToStringForDatabricks(), transform = {p:String[*] | []})),
     | if($func->isFullyLiteralInForDatabricks(),
          | ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = $func->renderFullyLiteralInForDatabricks(), transform = {p:String[*] | []})),
@@ -660,6 +662,7 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
    )
    )
  )
+   )
  );
 }
 
@@ -889,6 +892,44 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
 function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::remByZeroErrorMessageForDatabricks(func:DynaFunction[1]):String[1]
 {
    'Cannot divide ' + $func.parameters->at(0)->numericLiteralOrNegatedNumericLiteralDisplayStringForDatabricks() + ' by zero';
+}
+
+// The raise_error(...) arms of range, array_slice and bitShiftLeft/bitShiftRight surface through the driver
+// wrapped in its Thrift response text, never as the raised message alone, so a call whose literal arguments
+// are already known to raise fails during plan generation instead. Non-literal arguments still rely on raise_error.
+function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::literalRaisingErrorMessageForDatabricks(func:DynaFunction[1]):String[0..1]
+{
+   let params = $func.parameters;
+   if(!$params->forAll(p | $p->isNumericLiteralOrNegatedNumericLiteralForDatabricks()),
+      | [],
+      | let values = $params->map(p | $p->numericLiteralOrNegatedNumericLiteralValueForDatabricks());
+        if($func.name == 'range' && $values->size() == 3 && $values->at(2) == 0,
+           | 'range step must not be 0',
+           | if($func.name->in(['bitShiftLeft', 'bitShiftRight']) && $values->size() == 2 && (($values->at(1) < 0) || ($values->at(1) > 62)),
+                | 'Unsupported number of bits to shift - max bits allowed is 62',
+                | []
+             )
+        );
+   )->concatenate(literalSliceErrorMessageForDatabricks($func))->first();
+}
+
+function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::literalSliceErrorMessageForDatabricks(func:DynaFunction[1]):String[0..1]
+{
+   let bounds = $func.parameters->tail();
+   if($func.name == 'array_slice' && $bounds->size() == 2 && $bounds->forAll(b | $b->isNumericLiteralOrNegatedNumericLiteralForDatabricks()),
+      | let low = $bounds->at(0)->numericLiteralOrNegatedNumericLiteralValueForDatabricks()->clampedToZeroForDatabricks();
+        let high = $bounds->at(1)->numericLiteralOrNegatedNumericLiteralValueForDatabricks()->clampedToZeroForDatabricks();
+        if($low > $high,
+           | 'The low bound (' + $low->toString() + ') can\'t be higher than the high bound (' + $high->toString() + ') in a slice operation',
+           | []
+        );,
+      | []
+   );
+}
+
+function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::clampedToZeroForDatabricks(n:Number[1]):Number[1]
+{
+   if($n < 0, | 0, | $n);
 }
 
 // True when the operand's inferred relational type is Integer-like (Integer, BigInt, or a
