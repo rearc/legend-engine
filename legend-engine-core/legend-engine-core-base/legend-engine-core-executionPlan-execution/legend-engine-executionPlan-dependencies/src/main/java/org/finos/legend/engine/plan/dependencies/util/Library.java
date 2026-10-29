@@ -554,7 +554,7 @@ public class Library
         }
     }
 
-    public static Number minus(List<Number> col)
+    public static Number minus(List<? extends Number> col)
     {
         int size = col.size();
         if (size == 0)
@@ -1028,6 +1028,12 @@ public class Library
             result.add(Tuples.pair((K) aList.get(i), (V) bList.get(i)));
         }
         return result;
+    }
+
+    public static <T> Pair<List<T>, List<T>> partition(Stream<T> stream, Function<? super T, Boolean> predicate)
+    {
+        Map<Boolean, List<T>> partitioned = stream.collect(Collectors.partitioningBy(predicate::apply));
+        return Tuples.pair(partitioned.get(true), partitioned.get(false));
     }
 
     public static <T> List<T> dropAt(List<T> col, long index, long count)

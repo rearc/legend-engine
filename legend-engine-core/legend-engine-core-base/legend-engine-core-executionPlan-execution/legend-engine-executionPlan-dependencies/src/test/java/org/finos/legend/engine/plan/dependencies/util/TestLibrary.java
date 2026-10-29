@@ -14,15 +14,42 @@
 
 package org.finos.legend.engine.plan.dependencies.util;
 
+import org.eclipse.collections.api.tuple.Pair;
 import org.finos.legend.engine.plan.dependencies.domain.date.PureDate;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class TestLibrary
 {
+    @Test
+    public void testPartition()
+    {
+        Pair<List<Integer>, List<Integer>> result = Library.partition(Stream.of(1, 2, 3, 4), i -> i > 2);
+        Assert.assertEquals(Arrays.asList(3, 4), result.getOne());
+        Assert.assertEquals(Arrays.asList(1, 2), result.getTwo());
+    }
+
+    @Test
+    public void testPartitionAllMatch()
+    {
+        Pair<List<Integer>, List<Integer>> result = Library.partition(Stream.of(1, 2), i -> i > 0);
+        Assert.assertEquals(Arrays.asList(1, 2), result.getOne());
+        Assert.assertEquals(Arrays.asList(), result.getTwo());
+    }
+
+    @Test
+    public void testPartitionNoneMatch()
+    {
+        Pair<List<Integer>, List<Integer>> result = Library.partition(Stream.of(1, 2), i -> i > 5);
+        Assert.assertEquals(Arrays.asList(), result.getOne());
+        Assert.assertEquals(Arrays.asList(1, 2), result.getTwo());
+    }
+
     @Test
     public void testSplitEmptyToken()
     {
@@ -106,5 +133,38 @@ public class TestLibrary
         Assert.assertEquals("on 2014} at x", Library.format("on %t{yyyy\"}\"} at %s", Arrays.asList(date, "x")));
         Assert.assertEquals("on 2014a\"b at x", Library.format("on %t{yyyy\"a\\\"b\"} at %s", Arrays.asList(date, "x")));
         Assert.assertEquals("on 07\"\" at x", Library.format("on %t{S(4,4,\"\\\"\")} at %s", Arrays.asList(date, "x")));
+    }
+
+    @Test
+    public void testMinusOfLongList()
+    {
+        Assert.assertEquals(2L, Library.minus(Arrays.asList(7L, 5L)));
+        Assert.assertEquals(-2L, Library.minus(Arrays.asList(7L, 5L, 4L)));
+    }
+
+    @Test
+    public void testMinusOfDoubleList()
+    {
+        Assert.assertEquals(2.0, Library.minus(Arrays.asList(7.0, 5.0)));
+    }
+
+    @Test
+    public void testMinusOfBigDecimalList()
+    {
+        Assert.assertEquals(BigDecimal.valueOf(2), Library.minus(Arrays.asList(BigDecimal.valueOf(7), BigDecimal.valueOf(5))));
+    }
+
+    @Test
+    public void testMinusOfEmptyList()
+    {
+        Assert.assertEquals(0, Library.minus(Arrays.<Long>asList()));
+    }
+
+    @Test
+    public void testMinusOfSingleElementList()
+    {
+        // generated code never takes this path for unary minus (it uses plain negation instead),
+        // so this exercises the method's own fallback, which widens through double
+        Assert.assertEquals(-7.0, Library.minus(Arrays.asList(7L)));
     }
 }
