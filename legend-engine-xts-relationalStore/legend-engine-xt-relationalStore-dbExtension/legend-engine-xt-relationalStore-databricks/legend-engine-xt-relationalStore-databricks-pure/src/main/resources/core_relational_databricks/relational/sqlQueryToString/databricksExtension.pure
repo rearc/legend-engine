@@ -275,7 +275,7 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
     // high bound instead of silently returning an empty array; the message interpolates the clamped
     // bound values actually used by the slice below. The from/to bounds must render as literals (not
     // bind markers) since they appear in a WHEN condition.
-    dynaFnToSql('array_slice',            $allStates,            ^ToSql(format='(case when greatest(%s, 0) > greatest(%s, 0) then raise_error(concat(\'The low bound (\', cast(greatest(%s, 0) as string), \') can\\\'t be higher than the high bound (\', cast(greatest(%s, 0) as string), \') in a slice operation\')) else slice(%s, greatest(%s, 0) + 1, greatest(greatest(%s, 0) - greatest(%s, 0), 0)) end)', transform={vals:String[*] | [$vals->at(1), $vals->at(2), $vals->at(1), $vals->at(2), $vals->at(0), $vals->at(1), $vals->at(2), $vals->at(1)]}, parametersWithinWhenClause = [false, true, true])),
+    dynaFnToSql('array_slice',            $allStates,            ^ToSql(format='(case when greatest(%s, 0) > greatest(%s, 0) then raise_error(concat(\'The low bound (\', cast(greatest(%s, 0) as string), \') can\'\'t be higher than the high bound (\', cast(greatest(%s, 0) as string), \') in a slice operation\')) else slice(%s, greatest(%s, 0) + 1, greatest(greatest(%s, 0) - greatest(%s, 0), 0)) end)', transform={vals:String[*] | [$vals->at(1), $vals->at(2), $vals->at(1), $vals->at(2), $vals->at(0), $vals->at(1), $vals->at(2), $vals->at(1)]}, parametersWithinWhenClause = [false, true, true])),
     dynaFnToSql('array_drop',             $allStates,            ^ToSql(format='slice(%s, greatest(%s, 0) + 1, greatest(size(%s) - greatest(%s, 0), 0))', transform={vals:String[*] | [$vals->at(0), $vals->at(1), $vals->at(0), $vals->at(1)]})),
     dynaFnToSql('array_take',             $allStates,            ^ToSql(format='slice(%s, 1, greatest(%s, 0))')),
     dynaFnToSql('array_first',            $allStates,            ^ToSql(format='try_element_at(%s, 1)')),
@@ -490,13 +490,9 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
          | fail($func->dateFieldExtractionErrorMessageForDatabricks()); ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = ''));,
          | if($func->isCoarseDatePrecisionOperandForDatabricks(),
               | fail($func->coarseDatePrecisionErrorMessageForDatabricks()); ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = ''));,
-              | if($func->isDomainViolatingMathFunctionForDatabricks(),
-                   | fail($func->domainViolationErrorMessageForDatabricks()); ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = ''));,
-                   | if($func->isRemByZeroForDatabricks(),
-                        | fail($func->remByZeroErrorMessageForDatabricks()); ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = ''));,
-                        | if($func->literalRaisingErrorMessageForDatabricks()->isNotEmpty(),
-                             | fail($func->literalRaisingErrorMessageForDatabricks()->toOne()); ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = ''));,
-                             | if($func->isLiteralDateToStringForDatabricks(),
+              | if($func->literalFailureMessageForDatabricks()->isNotEmpty(),
+                   | fail($func->literalFailureMessageForDatabricks()->toOne()); ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = ''));,
+                   | if($func->isLiteralDateToStringForDatabricks(),
     | ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = $func->renderLiteralDateToStringForDatabricks(), transform = {p:String[*] | []})),
     | if($func->isFullyLiteralInForDatabricks(),
          | ^DynaFunctionToSql(funcName = $func.name, stateMatch = [], toSql = ^ToSql(format = $func->renderFullyLiteralInForDatabricks(), transform = {p:String[*] | []})),
@@ -570,8 +566,6 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
    );
       )
  );
-   )
-   )
    )
    )
  )
@@ -673,8 +667,7 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
       ' in a native DATE/TIMESTAMP column; ' + $func.name + '() would silently lose that precision.';
 }
 
-// Spark's acos/asin/sqrt return NULL out of domain instead of raising, so a literal operand is checked during
-// plan generation. A negative literal parses as minus(Literal), not as a negative Literal.
+// A negative literal parses as minus(Literal), not as a negative Literal.
 function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::isNumericLiteralOrNegatedNumericLiteralForDatabricks(op:RelationalOperationElement[1]):Boolean[1]
 {
    ($op->instanceOf(Literal) && $op->cast(@Literal).value->instanceOf(Number))
@@ -698,57 +691,34 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
       | '-' + $op->cast(@DynaFunction).parameters->at(0)->cast(@Literal).value->toString());
 }
 
-function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::isDomainViolatingMathFunctionForDatabricks(func:DynaFunction[1]):Boolean[1]
+// Spark returns NULL for an out-of-domain acos/asin/sqrt, raises its own [REMAINDER_BY_ZERO] for rem, and
+// surfaces raise_error(...) wrapped in the driver's Thrift response text, so a call whose literal arguments
+// are known to fail raises the stdlib's message during plan generation instead.
+function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::literalFailureMessageForDatabricks(func:DynaFunction[1]):String[0..1]
 {
-   $func.name->in(['asin', 'acos', 'sqrt'])
-      && $func.parameters->size() == 1
-      && $func.parameters->at(0)->isNumericLiteralOrNegatedNumericLiteralForDatabricks()
-      && if($func.name == 'sqrt',
-            | $func.parameters->at(0)->numericLiteralOrNegatedNumericLiteralValueForDatabricks() < 0,
-            | $func.parameters->at(0)->numericLiteralOrNegatedNumericLiteralValueForDatabricks()->abs() > 1
-           );
+   if($func.name == 'array_slice',
+      | $func->literalSliceFailureMessageForDatabricks(),
+      | if(!$func.parameters->forAll(p | $p->isNumericLiteralOrNegatedNumericLiteralForDatabricks()),
+           | [],
+           | let values = $func.parameters->map(p | $p->numericLiteralOrNegatedNumericLiteralValueForDatabricks());
+             if($func.name->in(['asin', 'acos', 'sqrt']) && ($values->size() == 1) && if($func.name == 'sqrt', | $values->at(0) < 0, | $values->at(0)->abs() > 1),
+                | 'Unable to compute ' + $func.name + ' of ' + $func.parameters->at(0)->numericLiteralOrNegatedNumericLiteralDisplayStringForDatabricks(),
+                | if(($func.name == 'rem') && ($values->size() == 2) && ($values->at(1) == 0),
+                     | 'Cannot divide ' + $func.parameters->at(0)->numericLiteralOrNegatedNumericLiteralDisplayStringForDatabricks() + ' by zero',
+                     | if(($func.name == 'range') && ($values->size() == 3) && ($values->at(2) == 0),
+                          | 'range step must not be 0',
+                          | if($func.name->in(['bitShiftLeft', 'bitShiftRight']) && ($values->size() == 2) && (($values->at(1) < 0) || ($values->at(1) > 62)),
+                               | 'Unsupported number of bits to shift - max bits allowed is 62',
+                               | []
+                            )
+                       )
+                  )
+             );
+        )
+   );
 }
 
-function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::domainViolationErrorMessageForDatabricks(func:DynaFunction[1]):String[1]
-{
-   'Unable to compute ' + $func.name + ' of ' + $func.parameters->at(0)->numericLiteralOrNegatedNumericLiteralDisplayStringForDatabricks();
-}
-
-// Spark's mod raises [REMAINDER_BY_ZERO] instead of the stdlib's message; only a literal divisor can be checked.
-function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::isRemByZeroForDatabricks(func:DynaFunction[1]):Boolean[1]
-{
-   $func.name == 'rem'
-      && $func.parameters->size() == 2
-      && $func.parameters->at(0)->isNumericLiteralOrNegatedNumericLiteralForDatabricks()
-      && $func.parameters->at(1)->isNumericLiteralOrNegatedNumericLiteralForDatabricks()
-      && $func.parameters->at(1)->numericLiteralOrNegatedNumericLiteralValueForDatabricks() == 0;
-}
-
-function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::remByZeroErrorMessageForDatabricks(func:DynaFunction[1]):String[1]
-{
-   'Cannot divide ' + $func.parameters->at(0)->numericLiteralOrNegatedNumericLiteralDisplayStringForDatabricks() + ' by zero';
-}
-
-// The raise_error(...) arms of range, array_slice and bitShiftLeft/bitShiftRight surface through the driver
-// wrapped in its Thrift response text, never as the raised message alone, so a call whose literal arguments
-// are already known to raise fails during plan generation instead. Non-literal arguments still rely on raise_error.
-function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::literalRaisingErrorMessageForDatabricks(func:DynaFunction[1]):String[0..1]
-{
-   let params = $func.parameters;
-   if(!$params->forAll(p | $p->isNumericLiteralOrNegatedNumericLiteralForDatabricks()),
-      | [],
-      | let values = $params->map(p | $p->numericLiteralOrNegatedNumericLiteralValueForDatabricks());
-        if($func.name == 'range' && $values->size() == 3 && $values->at(2) == 0,
-           | 'range step must not be 0',
-           | if($func.name->in(['bitShiftLeft', 'bitShiftRight']) && $values->size() == 2 && (($values->at(1) < 0) || ($values->at(1) > 62)),
-                | 'Unsupported number of bits to shift - max bits allowed is 62',
-                | []
-             )
-        );
-   )->concatenate(literalSliceErrorMessageForDatabricks($func))->first();
-}
-
-function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::literalSliceErrorMessageForDatabricks(func:DynaFunction[1]):String[0..1]
+function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::literalSliceFailureMessageForDatabricks(func:DynaFunction[1]):String[0..1]
 {
    let bounds = $func.parameters->tail();
    if($func.name == 'array_slice' && $bounds->size() == 2 && $bounds->forAll(b | $b->isNumericLiteralOrNegatedNumericLiteralForDatabricks()),
@@ -868,7 +838,7 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
       pair('array_size',        ^ToSql(format='ifnull(size(cast(%s as array<variant>)), 0)')),
       pair('array_append',      ^ToSql(format='array_append(cast(%s as array<variant>), cast(%s as variant))')),
       pair('array_position',    ^ToSql(format='ifnull(array_position(cast(%s as array<variant>), cast(%s as variant)) - 1, -1)')),
-      pair('array_slice',       ^ToSql(format='(case when greatest(%s, 0) > greatest(%s, 0) then raise_error(concat(\'The low bound (\', cast(greatest(%s, 0) as string), \') can\\\'t be higher than the high bound (\', cast(greatest(%s, 0) as string), \') in a slice operation\')) else slice(cast(%s as array<variant>), greatest(%s, 0) + 1, greatest(greatest(%s, 0) - greatest(%s, 0), 0)) end)', transform={vals:String[*] | [$vals->at(1), $vals->at(2), $vals->at(1), $vals->at(2), $vals->at(0), $vals->at(1), $vals->at(2), $vals->at(1)]}, parametersWithinWhenClause = [false, true, true])),
+      pair('array_slice',       ^ToSql(format='(case when greatest(%s, 0) > greatest(%s, 0) then raise_error(concat(\'The low bound (\', cast(greatest(%s, 0) as string), \') can\'\'t be higher than the high bound (\', cast(greatest(%s, 0) as string), \') in a slice operation\')) else slice(cast(%s as array<variant>), greatest(%s, 0) + 1, greatest(greatest(%s, 0) - greatest(%s, 0), 0)) end)', transform={vals:String[*] | [$vals->at(1), $vals->at(2), $vals->at(1), $vals->at(2), $vals->at(0), $vals->at(1), $vals->at(2), $vals->at(1)]}, parametersWithinWhenClause = [false, true, true])),
       pair('array_drop',        ^ToSql(format='slice(cast(%s as array<variant>), greatest(%s, 0) + 1, greatest(size(cast(%s as array<variant>)) - greatest(%s, 0), 0))', transform={vals:String[*] | [$vals->at(0), $vals->at(1), $vals->at(0), $vals->at(1)]})),
       pair('array_take',        ^ToSql(format='slice(cast(%s as array<variant>), 1, greatest(%s, 0))')),
       pair('array_first',       ^ToSql(format='try_element_at(cast(%s as array<variant>), 1)')),
@@ -1127,79 +1097,11 @@ function <<access.private>> meta::relational::functions::sqlQueryToString::datab
    );
 }
 
-// Spark's collect_list has no order guarantee. When the joined value comes, through cast/toString/if, from a
-// column of a table with a single-column primary key, values are collected with that key and sorted by it.
-function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::findDatabricksJoinStringsOrderColumn(js:JoinStrings[1]): TableAliasColumn[0..1]
-{
-   // testJoinStringsGroupByDatabricks pins the unordered rendering for a bare column.
-   if(($js.strings->size() != 1) || $js.strings->at(0)->instanceOf(TableAliasColumn),
-      | [],
-      | meta::relational::functions::sqlQueryToString::databricks::findDatabricksOrderColumnCandidate($js.strings->at(0));
-   );
-}
-
-function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::findDatabricksOrderColumnCandidate(col:RelationalOperationElement[1]): TableAliasColumn[0..1]
-{
-   if($col->instanceOf(TableAliasColumn),
-      | let tac = $col->cast(@TableAliasColumn);
-        let source = $tac.alias.relationalElement;
-        if(!$source->instanceOf(Table),
-           | [],
-           | let pk = $source->cast(@Table).primaryKey;
-             if(($pk->size() != 1) || ($pk->toOne() == $tac.column),
-                | [],
-                | ^TableAliasColumn(alias=$tac.alias, column=$pk->toOne());
-             );
-        );,
-      | if($col->instanceOf(DynaFunction),
-           | let df = $col->cast(@DynaFunction);
-             if((($df.name == 'cast') || ($df.name == 'toString')) && ($df.parameters->size() == 1),
-                | meta::relational::functions::sqlQueryToString::databricks::findDatabricksOrderColumnCandidate($df.parameters->at(0));,
-                | if(($df.name == 'if') && ($df.parameters->size() == 3),
-                     | let fromThen = meta::relational::functions::sqlQueryToString::databricks::findDatabricksOrderColumnCandidate($df.parameters->at(1));
-                       if($fromThen->isNotEmpty(),
-                          | $fromThen;,
-                          | meta::relational::functions::sqlQueryToString::databricks::findDatabricksOrderColumnCandidate($df.parameters->at(2));
-                       );,
-                     | [];
-                  );
-             );,
-           | [];
-        );
-   );
-}
-
-// The explicit comparator is required: array_sort's default struct ordering misordered elements on Databricks.
-function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::processOrderedJoinStringsForDatabricks(js:JoinStrings[1], orderColumn:TableAliasColumn[1], sgc:SqlGenerationContext[1]): String[1]
-{
-   let valueSql = $js.strings->at(0)->processOperation($sgc);
-   let orderSql = $orderColumn->processOperation($sgc);
-   let separator = if($js.separator->isEmpty(), |'\'\'', |$js.separator->toOne()->processOperation($sgc));
-   let prefix = if($js.prefix->isEmpty(), |'\'\'', |$js.prefix->toOne()->processOperation($sgc));
-   let suffix = if($js.suffix->isEmpty(), |'\'\'', |$js.suffix->toOne()->processOperation($sgc));
-
-   let comparator = '(`left`, `right`) -> case when `left`.k < `right`.k then -1 when `left`.k > `right`.k then 1 else 0 end';
-   let aggregated = 'array_join(transform(array_sort(collect_list(struct(' + $orderSql + ' as k, ' + $valueSql + ' as v)), ' + $comparator + '), `x` -> x.v), ' + $separator + ')';
-
-   let wrapped = if(eq($prefix, '\'\''),
-                    | if(eq($suffix, '\'\''), | [$aggregated], | [$aggregated]->add($suffix)),
-                    | if(eq($suffix, '\'\''), | [$aggregated]->add(0, $prefix), | [$aggregated]->add(0, $prefix)->add($suffix)));
-
-   if($wrapped->size() == 1,
-      | $wrapped->at(0),
-      | $wrapped->joinStrings('concat(', ',', ')');
-   );
-}
-
 function <<access.private>> meta::relational::functions::sqlQueryToString::databricks::processJoinStringsOperationForDatabricks(js:JoinStrings[1], sgc:SqlGenerationContext[1]): String[1]
 {
-   let orderColumn = $js->findDatabricksJoinStringsOrderColumn();
-   if($orderColumn->isNotEmpty(),
-      | processOrderedJoinStringsForDatabricks($js, $orderColumn->toOne(), $sgc);,
-      | processJoinStringsOperation($js, $sgc,
-           {col, sep| 'array_join(collect_list(' + $col + '), ' + $sep + ')'},
-           {strs, sep| $strs->joinStrings('concat(', if('\'\'' == $sep, |', ', |', ' + $sep + ', '), ')')});
-   );
+   processJoinStringsOperation($js, $sgc,
+      {col, sep| 'array_join(collect_list(' + $col + '), ' + $sep + ')'},
+      {strs, sep| $strs->joinStrings('concat(', if('\'\'' == $sep, |', ', |', ' + $sep + ', '), ')')});
 }
 
 // The shared default processFrameValue hard-fails on FrameIntervalValue ('Window function with
